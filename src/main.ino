@@ -7,7 +7,16 @@
  */
 
 // #define MYDEBUG
-#define DIRECTFANCONTROL
+
+
+/****************************************
+ * 
+ * 
+ *  WIFIMANAGER Settings
+ * 
+ * 
+ * ***************************************/
+
 
 #include <FS.h>                   //this needs to be first, or it all crashes and burns...
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
@@ -18,15 +27,38 @@
 
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
 
+
+//flag for saving data
+bool shouldSaveConfig = false;
+
+
+/****************************************
+ * 
+ * 
+ *  MQTT Settings
+ * 
+ * 
+ * ***************************************/
 #include <PubSubClient.h>
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient); 
+long lastReconnectAttempt = 0;
 
 //define your default values here, if there are different values in config.json, they are overwritten.
 char mqtt_server[40]="192.168.178.100";
 char mqtt_port[6] = "1883";
 char mqtt_topic[40] = "TACX2MQTT";
 //#define RESET_BTN_PIN 2
+
+
+
+/****************************************
+ * 
+ * 
+ *  BLE Settings
+ * 
+ * 
+ * ***************************************/
 
 #include "BLEDevice.h"
 //#include "BLEScan.h"
@@ -96,6 +128,14 @@ uint8_t Page25Bytes[13] = {
 
 
 
+/****************************************
+ * 
+ * 
+ *  TACX Settings
+ * 
+ * 
+ * ***************************************/
+
 
 // RawgradeValue varies between 0 (-200% grade) and 40000 (+200% grade)
 // SIMCLINE is mechanically working between -10% and +20% --> 19000 and 22000
@@ -162,38 +202,12 @@ void sendRequest()
 }
 
 
-/////////////////////////////////////////////////////
-#ifdef DIRECTFANCONTROL
-void controlFAN(){
-  if(PowerValue<10){
-    mqttClient.publish("cmnd/ZwiftFan/POWER1","OFF");
-    mqttClient.publish("cmnd/ZwiftFan/POWER2","OFF");
-    mqttClient.publish("cmnd/ZwiftFan/POWER3","OFF");
-    mqttClient.publish("cmnd/ZwiftFan/POWER4","OFF");
-    return;
-  }
-  if(PowerValue<150){
-    mqttClient.publish("cmnd/ZwiftFan/POWER4","ON");
-    return;
-  }
-  if(PowerValue<300){
-    mqttClient.publish("cmnd/ZwiftFan/POWER3","ON");
-    return;
-  }
-  if(PowerValue<500){
-    mqttClient.publish("cmnd/ZwiftFan/POWER2","ON");
-    return;
-  }
-}
-#endif
-/////////////////////////////////////////////////////
-
 static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify)
 {
   uint8_t buffer[20 + 1];
   memset(buffer, 0, sizeof(buffer));
 #ifdef MYDEBUG
-  //Serial.printf("Dump of FE-C Data packets [length: %02d]  ", length);
+  Serial.printf("Dump of FE-C Data packets [length: %02d]  ", length);
 #endif
   for (int i = 0; i < length; i++)
   {
@@ -201,7 +215,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     {
       buffer[i] = *pData++;
 #ifdef MYDEBUG
-      //Serial.printf("%02X ", buffer[i], HEX);
+    Serial.printf("%02X ", buffer[i], HEX);
 #endif
     }
   }
@@ -244,11 +258,11 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
         RawgradeValue = ARGVMAX;
       } // Do not allow values to exceed ARGVMAX !!
         // End test --> continue ---------------------------------------------------------------------------
-// #ifdef DEBUGSIM
+#ifdef MYDEBUG
       Serial.printf("--Page 51 received - RawgradeValue: %05d  ", RawgradeValue);
       Serial.printf("Grade percentage: %02.1f %%", gradePercentValue);
       Serial.println();
-
+#endif
 
     if(mqttClient.connected()){
       char buffer[128];
@@ -256,7 +270,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       mqttClient.publish(buffer,String(gradePercentValue).c_str());
     }
 
-// #endif
+
     }
     break;
   case 0x19:
@@ -277,15 +291,13 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       snprintf(buffer, sizeof(buffer), "%S/Cadence", mqtt_topic);
       mqttClient.publish(buffer,String(InstantaneousCadence).c_str());
     }
-// #ifdef DEBUGSIM
+#ifdef MYDEBUG
     Serial.printf("Event count: %03d  ", UpdateEventCount);
     Serial.printf(" - Cadence: %03d  ", InstantaneousCadence);
     Serial.printf(" - Power in Watts: %04d  ", PowerValue);
     Serial.println();
-// #endif
-#ifdef DIRECTFANCONTROL
-  controlFAN();
 #endif
+
   }
   break;
   case 0x10:
@@ -307,12 +319,12 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       mqttClient.publish(buffer,String(SpeedValue).c_str());
     }
 
-// #ifdef DEBUGSIM
+#ifdef MYDEBUG
     Serial.printf("Elapsed time: %05d s  ", ElapsedTime);
     Serial.printf(" - Distance travelled: %05d m ", DistanceTravelled);
     Serial.printf(" - Speed: %02d km/h", SpeedValue);
     Serial.println();
-// #endif
+#endif
   }
   break;
   case 0x80:
@@ -321,7 +333,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
   }
   default:
   {
-#ifdef DEBUGSIM
+#ifdef MYDEBUG
     Serial.printf("Page: %2d ", PageValue);
     Serial.println(" Received");
 #endif
@@ -340,6 +352,10 @@ class MyClientCallback : public BLEClientCallbacks {
   }
 };
 
+
+/****************************************
+ *  BLE Connect to Tacx
+ * ***************************************/
 bool connectToServer() {
     Serial.print("Forming a connection to ");
     Serial.println(myDevice->getAddress().toString().c_str());
@@ -430,9 +446,10 @@ bool connectToServer() {
     connected = true;
     return true;
 }
-/**
- * Scan for BLE servers and find the first one that advertises the service we are looking for.
- */
+
+/****************************************
+ *  Scan for BLE servers and find the first one that advertises the service we are looking for.
+ * ***************************************/
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
  /**
    * Called for each advertising BLE server.
@@ -455,16 +472,9 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 
 
-
-
-
-///////////////////
-///////////////////
-
-
-
-//flag for saving data
-bool shouldSaveConfig = false;
+/****************************************
+ *  WiFiManager Function
+ * ***************************************/
 
 //callback notifying us of the need to save config
 void saveConfigCallback () {
@@ -662,12 +672,12 @@ bool reconnect()
   return mqttClient.connected();
 }
 
-///////////////////
-///////////////////
 
 
 
-
+/****************************************
+ *  Setup everything
+ * ***************************************/
 
 
 void setup() {
@@ -693,10 +703,13 @@ void setup() {
   pBLEScan->start(30, false);
 } // End of setup.
 
-long lastReconnectAttempt = 0;
 
-// This is the Arduino main loop function.
+
+/****************************************
+ *  Main Loop
+ * ***************************************/
 void loop() {
+    //check MQTT Connection and try to reconnect if not connected
     if (!mqttClient.connected()){
       long now = millis();
       if (now - lastReconnectAttempt > 5000) {
@@ -726,7 +739,6 @@ void loop() {
   // with the current time since boot.
   if (connected) {
     sendRequest();      //send request every xx ms
-
   }else if(doScan){
     BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
