@@ -1,0 +1,425 @@
+#include <Arduino.h>
+/**
+ * A BLE client example that is rich in capabilities.
+ * There is a lot new capabilities implemented.
+ * author unknown
+ * updated by chegewara
+ */
+
+// #define MYDEBUG
+
+#include "BLEDevice.h"
+//#include "BLEScan.h"
+
+// The remote service we wish to connect to.
+//static BLEUUID serviceUUID("4fafc201-1fb5-459e-8fcc-c5c9c331914b");
+static BLEUUID serviceUUID("6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E");
+// The characteristic of the remote service we are interested in.
+// static BLEUUID    charUUID("beb5483e-36e1-4688-b7f5-ea07361b26a8");
+
+static BLEUUID    FCE_RX_UUID("6E40FEC2-B5A3-F393-E0A9-E50E24DCCA9E");
+static BLEUUID    FCE_TX_UUID("6E40FEC3-B5A3-F393-E0A9-E50E24DCCA9E");
+
+
+static boolean doConnect = false;
+static boolean connected = false;
+static boolean doScan = false;
+static BLERemoteCharacteristic* FCE_TX;
+static BLERemoteCharacteristic* FCE_RX;
+static BLEAdvertisedDevice* myDevice;
+
+
+
+unsigned long SendRequestPage51Delay = 2960; //Sample rate for Page 51 requests 4 seconds ?
+unsigned long SendRequestPage51Event = millis(); //Millis of last Page 51 request event
+
+unsigned long SendRequestPage25Delay = 1850; //Sample rate for Page 51 requests 4 seconds ?
+unsigned long SendRequestPage25Event = millis(); //Millis of last Page 51 request event
+
+//Define the Request Page 51 Command to send
+uint8_t Page51Bytes[13] = {
+    0xA4, //Sync
+    0x09, //Length
+    0x4F, //Acknowledge message type
+    0x05, //Channel 
+          //Data
+    0x46, //Common Page 70
+    0xFF,
+    0xFF,
+    0xFF, //Descriptor byte 1 (0xFF for no value)
+    0xFF, //Descriptor byte 2 (0xFF for no value)
+    0x80, //Requested transmission response
+    0x33, //Requested page number 51 
+    0x01, //Command type (0x01 for request data page, 0x02 for request ANT-FS session)
+    0x47}; //Checksum;
+
+
+
+
+  //Define the Request Page 51 Command to send
+uint8_t Page25Bytes[13] = {
+    0xA4, //Sync
+    0x09, //Length
+    0x4F, //Acknowledge message type
+    0x05, //Channel 
+          //Data
+    0x46, //Common Page 70
+    0xFF,
+    0xFF,
+    0xFF, //Descriptor byte 1 (0xFF for no value)
+    0xFF, //Descriptor byte 2 (0xFF for no value)
+    0x80, //Requested transmission response
+    0x19, //Requested page number 25 
+    0x01, //Command type (0x01 for request data page, 0x02 for request ANT-FS session)
+    0x47}; //Checksum;
+
+
+
+
+// RawgradeValue varies between 0 (-200% grade) and 40000 (+200% grade)
+// SIMCLINE is mechanically working between -10% and +20% --> 19000 and 22000
+// correction for measuring plane difference and midth wheel axis position (2 cm offset is an MEASUREOFFSET of 200)
+#define MEASUREOFFSET 100 
+// Raw Grade Value Minimally (Mechanically: the lowest position of wheel axis)  19000 is equiv. of -10% road grade
+#define RGVMIN 19000 
+// Raw Grade Value Maximally (Mechanically: the highest position of wheel axis) 22000 is equiv. of +20% road grade
+#define RGVMAX 22000 
+// Besides what is mechanically possible there are also limits in what is physically pleasant
+// The following Min and Max values should be within the limits of the mechanically feasible values of above !!!
+// Minimally Allowed Raw Grade Value that should not be exceeded: -5%!
+#define ARGVMIN 19500
+// Maximally Allowed Raw Grade Value that should not be exceeded: 15%!
+#define ARGVMAX 21500
+// set value for a flat road = 0% grade 
+// 1000 is a 10% road grade --> added to the minimal position is equiv. of 0% road grade
+// result needs to be corrected for the measure offset
+long RawgradeValue = (RGVMIN + 1000) - MEASUREOFFSET; 
+float gradePercentValue = 0;
+
+// TACX trainer calculated & measured basic cycling data
+long PowerValue = 0;
+uint8_t InstantaneousCadence = 0;
+long SpeedValue = 0;
+
+void SendRequestPage51()
+{
+#ifdef MYDEBUG
+  Serial.printf("%d  Sending Request for data page 51\n ", SendRequestPage51Event);
+#endif
+  // Page51Bytes are globally defined
+  // uint16_t write(const void* data, uint16_t len);
+  FCE_TX->writeValue(Page51Bytes, sizeof(Page51Bytes),false);
+}
+
+void SendRequestPage25()
+{
+#ifdef MYDEBUG
+  Serial.printf("%d  Sending Request for data page 51\n ", SendRequestPage51Event);
+#endif
+  // Page51Bytes are globally defined
+  // uint16_t write(const void* data, uint16_t len);
+  FCE_TX->writeValue(Page25Bytes, sizeof(Page25Bytes),false);
+}
+
+void sendRequest()
+{
+  long tmp = millis() - SendRequestPage51Delay;
+  if (tmp >= SendRequestPage51Event)
+  {
+    SendRequestPage51Event = millis();
+    SendRequestPage51();
+    Serial.println("request page 51\n");
+  }
+
+  tmp = millis() - SendRequestPage25Delay;
+  if (tmp >= SendRequestPage25Event)
+  {
+    SendRequestPage25Event = millis();
+    SendRequestPage25();
+    Serial.println("request page 25\n");
+  }
+}
+
+static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify)
+{
+  uint8_t buffer[20 + 1];
+  memset(buffer, 0, sizeof(buffer));
+#ifdef MYDEBUG
+  //Serial.printf("Dump of FE-C Data packets [length: %02d]  ", length);
+#endif
+  for (int i = 0; i < length; i++)
+  {
+    if (i <= sizeof(buffer))
+    {
+      buffer[i] = *pData++;
+#ifdef MYDEBUG
+      //Serial.printf("%02X ", buffer[i], HEX);
+#endif
+    }
+  }
+  uint8_t PageValue = buffer[4]; // Get Page number from packet
+#ifdef MYDEBUG
+  Serial.print("Got page ID:");
+  Serial.println(PageValue);
+#endif
+
+  switch (PageValue)
+  {
+  case 0x47:
+    ////////////////////////////////////////////////////////////
+    //////////////////// Handle PAGE 71 ////////////////////////
+    ////////////// Requested PAGE 51 for grade info ////////////
+    ////////////////////////////////////////////////////////////
+    if (buffer[5] == 0x33) // check for requested page 51
+    {
+      uint8_t lsb_gradeValue = buffer[9];
+      uint8_t msb_gradeValue = buffer[10];
+      RawgradeValue = lsb_gradeValue + msb_gradeValue * 256;
+      gradePercentValue = float((RawgradeValue - 20000)) / 100;
+      // in steps of 0.01% and with an offset of -200%
+      // gradeValue     gradePercentValue
+      //     0                 -200%
+      //  19000                 -10%
+      //  20000                   0%
+      //  22000                 +20%
+      //  40000                +200%
+      // -------------------------------------
+      // Take into account the measuring offset
+      RawgradeValue = RawgradeValue - MEASUREOFFSET;
+      // Test for Maximally en Minimally Allowed Raw Grade Values ----------------------------------------
+      if (RawgradeValue < ARGVMIN)
+      {
+        RawgradeValue = ARGVMIN;
+      } // Do not allow lower values than ARGVMIN !!
+      if (RawgradeValue > ARGVMAX)
+      {
+        RawgradeValue = ARGVMAX;
+      } // Do not allow values to exceed ARGVMAX !!
+        // End test --> continue ---------------------------------------------------------------------------
+// #ifdef DEBUGSIM
+      Serial.printf("--Page 51 received - RawgradeValue: %05d  ", RawgradeValue);
+      Serial.printf("Grade percentage: %02.1f %%", gradePercentValue);
+      Serial.println();
+// #endif
+    }
+    break;
+  case 0x19:
+  {
+    /////////////////////////////////////////////////
+    /////////// Handle PAGE 25 Trainer/Bike Data ////
+    /////////////////////////////////////////////////
+    uint8_t UpdateEventCount = buffer[5];
+    InstantaneousCadence = buffer[6];
+    uint8_t lsb_InstantaneousPower = buffer[9];
+    // POWER is stored in 1.5 byte !!!
+    uint8_t msb_InstantaneousPower = (buffer[10] & 0x0F); // bits 0:3 --> MSNibble only!!!
+    PowerValue = lsb_InstantaneousPower + msb_InstantaneousPower * 256;
+// #ifdef DEBUGSIM
+    Serial.printf("Event count: %03d  ", UpdateEventCount);
+    Serial.printf(" - Cadence: %03d  ", InstantaneousCadence);
+    Serial.printf(" - Power in Watts: %04d  ", PowerValue);
+    Serial.println();
+// #endif
+  }
+  break;
+  case 0x10:
+  {
+    //////////////////////////////////////////////
+    //////////// Handle PAGE 16 General FE Data //
+    //////////////////////////////////////////////
+    uint8_t ElapsedTime = buffer[6];       // units of 0.25 seconds
+    uint8_t DistanceTravelled = buffer[7]; // in meters 256 m rollover
+    uint8_t lsb_SpeedValue = buffer[8];
+    uint8_t msb_SpeedValue = buffer[9];
+    SpeedValue = ((lsb_SpeedValue + msb_SpeedValue * 256) / 1000) * 3.6; // in units of 0,001 m/s naar km/h
+// #ifdef DEBUGSIM
+    Serial.printf("Elapsed time: %05d s  ", ElapsedTime);
+    Serial.printf(" - Distance travelled: %05d m ", DistanceTravelled);
+    Serial.printf(" - Speed: %02d km/h", SpeedValue);
+    Serial.println();
+// #endif
+  }
+  break;
+  case 0x80:
+  {
+    // Manufacturer Identification Page
+  }
+  default:
+  {
+#ifdef DEBUGSIM
+    Serial.printf("Page: %2d ", PageValue);
+    Serial.println(" Received");
+#endif
+    return;
+  }
+  }
+}
+
+class MyClientCallback : public BLEClientCallbacks {
+  void onConnect(BLEClient* pclient) {
+  }
+
+  void onDisconnect(BLEClient* pclient) {
+    connected = false;
+    Serial.println("onDisconnect");
+  }
+};
+
+bool connectToServer() {
+    Serial.print("Forming a connection to ");
+    Serial.println(myDevice->getAddress().toString().c_str());
+    
+    BLEClient*  pClient  = BLEDevice::createClient();
+    Serial.println(" - Created client");
+
+    pClient->setClientCallbacks(new MyClientCallback());
+
+    // Connect to the remove BLE Server.
+    pClient->connect(myDevice);  // if you pass BLEAdvertisedDevice instead of address, it will be recognized type of peer device address (public or private)
+    Serial.println(" - Connected to server");
+    // pClient->setMTU(517); //set client to request maximum MTU from server (default is 23 otherwise)
+  
+    // Obtain a reference to the service we are after in the remote BLE server.
+    BLERemoteService* pRemoteService = pClient->getService(serviceUUID);
+    if (pRemoteService == nullptr) {
+      Serial.print("Failed to find our service UUID: ");
+      Serial.println(serviceUUID.toString().c_str());
+      pClient->disconnect();
+      return false;
+    }
+    Serial.println(" - Found our service");
+
+
+
+
+#ifdef MYDEBUG
+    std::map<std::__cxx11::basic_string<char>, BLERemoteCharacteristic *> *mapOfWordCount;
+    mapOfWordCount = pRemoteService->getCharacteristics();
+    std::map<std::__cxx11::basic_string<char>, BLERemoteCharacteristic *>::iterator it = mapOfWordCount->begin();
+    Serial.println(mapOfWordCount->size());
+    while (it != mapOfWordCount->end())
+    {
+      std::string word = it->first;
+      Serial.print(word.c_str());
+      BLERemoteCharacteristic *chara = it->second;
+      Serial.print("UUID=");
+      Serial.println(chara->toString().c_str());
+      it++;
+    }
+#endif
+
+
+
+
+
+    // Obtain a reference to the characteristic in the service of the remote BLE server.
+    FCE_RX = pRemoteService->getCharacteristic(FCE_RX_UUID);
+    if (FCE_RX == nullptr) {
+      Serial.print("Failed to find our characteristic FCE_RX_UUID: ");
+      Serial.println(FCE_RX_UUID.toString().c_str());
+      pClient->disconnect();
+      return false;
+    }
+    Serial.println(" - Found our FCE_RX_UUID characteristic ");
+
+    // Read the value of the characteristic.
+    if(FCE_RX->canRead()) {
+      std::string value = FCE_RX->readValue();
+      Serial.print("The characteristic value was: ");
+      Serial.println(value.c_str());
+    }
+
+
+    if(FCE_RX->canNotify())
+      FCE_RX->registerForNotify(notifyCallback);
+
+    // Obtain a reference to the characteristic in the service of the remote BLE server.
+    FCE_TX = pRemoteService->getCharacteristic(FCE_TX_UUID);
+    if (FCE_TX == nullptr) {
+      Serial.print("Failed to find our characteristic FCE_TX_UUID: ");
+      Serial.println(FCE_TX_UUID.toString().c_str());
+      pClient->disconnect();
+      return false;
+    }
+   
+    // Read the value of the characteristic.
+    if(!FCE_TX->canWrite()) {
+      Serial.print("Can not write our characteristic FCE_TX_UUID: ");
+      Serial.println(FCE_TX_UUID.toString().c_str());
+      pClient->disconnect();
+      return false;
+    }
+
+     Serial.println(" - Found our FCE_TX_UUID characteristic");
+
+    connected = true;
+    return true;
+}
+/**
+ * Scan for BLE servers and find the first one that advertises the service we are looking for.
+ */
+class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
+ /**
+   * Called for each advertising BLE server.
+   */
+  void onResult(BLEAdvertisedDevice advertisedDevice) {
+    Serial.print("BLE Advertised Device found: ");
+    Serial.println(advertisedDevice.toString().c_str());
+
+    // We have found a device, let us now see if it contains the service we are looking for.
+    if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
+
+      BLEDevice::getScan()->stop();
+      myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      doConnect = true;
+      doScan = true;
+
+    } // Found our server
+  } // onResult
+}; // MyAdvertisedDeviceCallbacks
+
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Starting Arduino BLE Client application...");
+  BLEDevice::init("");
+
+  // Retrieve a Scanner and set the callback we want to use to be informed when we
+  // have detected a new device.  Specify that we want active scanning and start the
+  // scan to run for 5 seconds.
+  BLEScan* pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  pBLEScan->setInterval(1349);
+  pBLEScan->setWindow(449);
+  pBLEScan->setActiveScan(true);
+  pBLEScan->start(30, false);
+} // End of setup.
+
+
+// This is the Arduino main loop function.
+void loop() {
+
+  // If the flag "doConnect" is true then we have scanned for and found the desired
+  // BLE Server with which we wish to connect.  Now we connect to it.  Once we are 
+  // connected we set the connected flag to be true.
+  if (doConnect == true) {
+    if (connectToServer()) {
+      Serial.println("We are now connected to the BLE Server.");
+    } else {
+      Serial.println("We have failed to connect to the server; there is nothin more we will do.");
+    }
+    doConnect = false;
+  }
+
+  // If we are connected to a peer BLE Server, update the characteristic each time we are reached
+  // with the current time since boot.
+  if (connected) {
+    sendRequest();      //send request every xx ms
+
+   
+  }else if(doScan){
+    BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
+  }
+  
+  delay(1000); // Delay a second between loops.
+} // End of loop
