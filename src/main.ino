@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <M5Core2.h>
+
 /**
  * A BLE client example that is rich in capabilities.
  * There is a lot new capabilities implemented.
@@ -10,11 +12,7 @@
 
 
 /****************************************
- * 
- * 
  *  WIFIMANAGER Settings
- * 
- * 
  * ***************************************/
 
 
@@ -33,11 +31,7 @@ bool shouldSaveConfig = false;
 
 
 /****************************************
- * 
- * 
  *  MQTT Settings
- * 
- * 
  * ***************************************/
 #include <PubSubClient.h>
 WiFiClient wifiClient;
@@ -53,11 +47,7 @@ char mqtt_topic[40] = "TACX2MQTT";
 
 
 /****************************************
- * 
- * 
  *  BLE Settings
- * 
- * 
  * ***************************************/
 
 #include "BLEDevice.h"
@@ -129,11 +119,7 @@ uint8_t Page25Bytes[13] = {
 
 
 /****************************************
- * 
- * 
  *  TACX Settings
- * 
- * 
  * ***************************************/
 
 
@@ -286,10 +272,12 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     PowerValue = lsb_InstantaneousPower + msb_InstantaneousPower * 256;
     if(mqttClient.connected()){
       char buffer[128];
-      snprintf(buffer, sizeof(buffer), "%S/Power", mqtt_topic);
+      snprintf(buffer, sizeof(buffer), "%s/Power", mqtt_topic);
       mqttClient.publish(buffer,String(PowerValue).c_str());
-      snprintf(buffer, sizeof(buffer), "%S/Cadence", mqtt_topic);
+      snprintf(buffer, sizeof(buffer), "%s/Cadence", mqtt_topic);
       mqttClient.publish(buffer,String(InstantaneousCadence).c_str());
+       snprintf(buffer, sizeof(buffer), "%s/UpdateEventCount", mqtt_topic);
+      mqttClient.publish(buffer,String(UpdateEventCount).c_str());
     }
 #ifdef MYDEBUG
     Serial.printf("Event count: %03d  ", UpdateEventCount);
@@ -313,10 +301,12 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
 
     if(mqttClient.connected()){
       char buffer[128];
-      snprintf(buffer, sizeof(buffer), "%S/DistanceTravelled", mqtt_topic);
+      snprintf(buffer, sizeof(buffer), "%s/DistanceTravelled", mqtt_topic);
       mqttClient.publish(buffer,String(DistanceTravelled).c_str());
-      snprintf(buffer, sizeof(buffer), "%S/SpeedValue", mqtt_topic);
+      snprintf(buffer, sizeof(buffer), "%s/SpeedValue", mqtt_topic);
       mqttClient.publish(buffer,String(SpeedValue).c_str());
+      snprintf(buffer, sizeof(buffer), "%s/ElapsedTime", mqtt_topic);
+      mqttClient.publish(buffer,String(ElapsedTime).c_str());
     }
 
 #ifdef MYDEBUG
@@ -681,6 +671,7 @@ bool reconnect()
 
 
 void setup() {
+  M5.begin(); 
   Serial.begin(115200);
 #ifdef RESET_BTN_PIN
   pinMode(RESET_BTN_PIN, INPUT);

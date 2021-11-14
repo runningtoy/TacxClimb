@@ -7,11 +7,12 @@
 #define Lifter_h
 
 #include "Arduino.h"
-#include "VL6180X.h"
+// #include "VL6180X.h"
+#include <VL53L0X.h>
 
 class Lifter {
  
-  VL6180X sensor;
+  VL53L0X sensor;
   bool _IsBrakeOn;
   bool _IsMovingUp;
   bool _IsMovingDown;

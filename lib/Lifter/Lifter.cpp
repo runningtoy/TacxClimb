@@ -1,6 +1,6 @@
 #include "Lifter.h"
-#include "SPI.h"
-#include "Wire.h"
+// #include "SPI.h"
+// #include "Wire.h"
 
 //#include "Adafruit_GFX.h"
 //#include "Adafruit_SSD1306.h"
@@ -34,9 +34,9 @@ void Lifter::Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH)
 
   // NOTICE: COMPILER DIRECTIVE !!!!
   // that leaves out almost all print statements!
-//#define DEBUG is uit !!
+//#define MYDEBUG is uit !!
   
-#ifdef DEBUG
+#ifdef MYDEBUG
   Serial.print("Pin1: "); Serial.print(_actuatorOutPin1); Serial.print(" Pin2: "); Serial.print(_actuatorOutPin2); 
   Serial.print(" BandWidth: "); Serial.print(_BANDWIDTH); Serial.print(" MinPosition: "); Serial.print(_MINPOSITION);
   Serial.print(" MaxPosition: "); Serial.print(_MAXPOSITION); Serial.println();  
@@ -58,24 +58,34 @@ void Lifter::Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH)
 //  Only scaling factors  #3 will work in our situation of 30+ cm range
   #define _SCALING 3
   sensor.init();
-  sensor.configureDefault();
-  sensor.setScaling(_SCALING);
+
+  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
+  // sensor.configureDefault();
+  // sensor.setScaling(_SCALING);
+  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
+
+
+
 // Single shot operating mode of VL6180X is simplest and default
 // The following is extra code critical for using Continuous mode !!!
   #ifdef RANGE_CONTINUOUS
   // Reduce range max convergence time and the inter-measurement
   // -time to 30 ms and 50 ms, respectively, to allow 10 Hz
   // operation. Somewhat more power consumption but higher accuracy!
-  sensor.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-  sensor.writeReg(VL6180X::SYSRANGE__INTERMEASUREMENT_PERIOD, 50);
+  
+  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
+  // sensor.writeReg(VL53L0X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
+  // sensor.writeReg(VL53L0X::SYSRANGE__INTERMEASUREMENT_PERIOD, 50);
+  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
+  
   // stop continuous mode if already active
   sensor.stopContinuous();
   // in case stopContinuous() triggered a single-shot
   // measurement, wait for it to complete
   delay(300);
   // start range continuous mode with a period of 100 ms
-  sensor.startRangeContinuous(100);
-#ifdef DEBUG
+  sensor.startContinuous(100);
+#ifdef MYDEBUG
   Serial.print(" ---------- VL6180X Range Continuous Mode Selected ---------"); Serial.println();
 #endif
   #endif
@@ -97,7 +107,7 @@ int16_t Lifter::GetVL6180X_Range_Reading()
  #endif
     if (sensor.timeoutOccurred()) 
         { 
-#ifdef DEBUG
+#ifdef MYDEBUG
         Serial.print(" TIMEOUT"); Serial.println();
 #endif
         }
@@ -106,21 +116,21 @@ int16_t Lifter::GetVL6180X_Range_Reading()
 
 bool Lifter::TestBasicMotorFunctions()
 {
-#ifdef DEBUG 
+#ifdef MYDEBUG 
   Serial.print("Testing VL6180X and motor functioning..."); Serial.println();
 #endif  
   int16_t PresentPosition01 = GetVL6180X_Range_Reading();
-#ifdef DEBUG  
+#ifdef MYDEBUG  
   Serial.print("Start at position: "); Serial.print(PresentPosition01);Serial.println();
 #endif
   if (PresentPosition01 != (constrain(PresentPosition01, _MINPOSITION, _MAXPOSITION)) )
   { // VL6108X is out of Range ... ?
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(">> ERROR << -> VL6108X Out of Range at start !!"); Serial.println();
 #endif
     return false; 
   }
-#ifdef DEBUG
+#ifdef MYDEBUG
   Serial.print("Moving UP ..."); Serial.println();
 #endif
   moveActuatorUp();
@@ -134,20 +144,20 @@ bool Lifter::TestBasicMotorFunctions()
   int16_t PresentPosition02 = (_CurrentPosition + _BANDWIDTH);
   if (PresentPosition02 != (constrain(PresentPosition02, _MINPOSITION, _MAXPOSITION)) )
   { // VL6108X is out of Range ... ?
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(">> ERROR << -> VL6108X Out of Range"); Serial.println();
 #endif
     return false; 
   }
   if (!(PresentPosition02 < PresentPosition01))
     { 
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(">> ERROR << -> VL6108X did not detect an UP movement"); Serial.println();
 #endif
     return false;
     }
   // VL6108X is properly working moving UP! ------------------------------------
-#ifdef DEBUG  
+#ifdef MYDEBUG  
   Serial.print("Moving Down ..."); Serial.println();
 #endif
   moveActuatorDown();
@@ -161,20 +171,20 @@ bool Lifter::TestBasicMotorFunctions()
   PresentPosition01 = (_CurrentPosition - _BANDWIDTH);
   if (PresentPosition01 != (constrain(PresentPosition01, _MINPOSITION, _MAXPOSITION)) )
   { // VL6108X is out of Range ... ?
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(">> ERROR << -> VL6108X Out of Range"); Serial.println();
 #endif
     return false; 
   }
   if (!(PresentPosition01 > PresentPosition02))
     { 
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(">> ERROR << -> VL6108X did not detect a DOWN movement"); Serial.println();
 #endif
     return false;
     }
   // AND VL6108X is properly moving DOWN ! --------------------------------------
-#ifdef DEBUG  
+#ifdef MYDEBUG  
   Serial.print("VL6180X and motor properly working ..."); Serial.println();
 #endif
   return true;
@@ -187,12 +197,12 @@ int Lifter::GetOffsetPosition()
   int16_t _PositionOffset = _TargetPosition - _CurrentPosition;
   if (sensor.timeoutOccurred()) 
     {
-#ifdef DEBUG 
+#ifdef MYDEBUG 
       Serial.print(" TIMEOUT"); Serial.println();
 #endif
     return 3;
     }
-#ifdef DEBUG
+#ifdef MYDEBUG
   Serial.print("Target: "); Serial.print(_TargetPosition);
   Serial.print("  Current: "); Serial.print(_CurrentPosition);
   Serial.print("  Offset: "); Serial.print(_PositionOffset); 
@@ -211,27 +221,27 @@ int Lifter::GetOffsetPosition()
   
   if ( (_PositionOffset >= -_BANDWIDTH) && (_PositionOffset <= _BANDWIDTH) )
     { // postion = 0 + or - BANDWIDTH so don't move anymore!
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(" offset = 0 (within bandwidth) "); Serial.println();
 #endif
     return 0; 
     }
   if ( _PositionOffset < 0 )
   {
-#ifdef DEBUG
+#ifdef MYDEBUG
    Serial.print(" offset < 0 "); Serial.println();
 #endif
    return 1;    
   }
   else 
   {
-#ifdef DEBUG
+#ifdef MYDEBUG
    Serial.print(" offset > 0 "); Serial.println();
 #endif
    return 2;     
   }
   // default --> error... stop!
-#ifdef DEBUG
+#ifdef MYDEBUG
   Serial.print(" BRAKE --> Offset comparison error!"); Serial.println();
 #endif
   return 0; 
@@ -248,7 +258,7 @@ void Lifter::moveActuatorUp()
   if (_CurrentPosition <= (_MINPOSITION + _BANDWIDTH) )
     { // Stop further movement to avoid destruction...
     _IsMovingUp = false;
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.print(" Stop MovingUp ");
 #endif
     brakeActuator();
@@ -263,7 +273,7 @@ void Lifter::moveActuatorUp()
     _IsMovingUp = true;
     _IsMovingDown = false;
     _IsBrakeOn = false;
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.println(" Set MovingUp ");
 #endif 
   }
@@ -274,7 +284,7 @@ void Lifter::moveActuatorDown()
   if (_CurrentPosition >= (_MAXPOSITION - _BANDWIDTH) )
     { // Stop further movement to avoid destruction...
     _IsMovingDown = false;
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.println(" Stop MovingDown ");
 #endif
     brakeActuator();
@@ -290,7 +300,7 @@ void Lifter::moveActuatorDown()
     _IsMovingDown = true;
     _IsMovingUp = false;
     _IsBrakeOn = false;
-#ifdef DEBUG
+#ifdef MYDEBUG
     Serial.println(" Set MovingDown ");
 #endif
   }
@@ -306,7 +316,7 @@ void Lifter::brakeActuator()
     _IsBrakeOn = true;
     _IsMovingDown = false;
     _IsMovingUp = false; 
-#ifdef DEBUG   
+#ifdef MYDEBUG   
     Serial.println(" Set Brake On ");
 #endif
   }
