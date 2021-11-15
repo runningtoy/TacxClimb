@@ -1,5 +1,19 @@
 #include <Arduino.h>
+#include "myDefines.h"
 #include <M5Core2.h>
+#include <Ticker.h>
+
+
+typedef enum M5BUTTON{  // <-- the use of typedef is optional
+  BTN_A,
+  BTN_B,
+  BTN_C,
+  NONE
+};
+
+
+M5BUTTON menue_Btn=M5BUTTON::NONE; // <-- the actual instance
+
 
 /**
  * A BLE client example that is rich in capabilities.
@@ -7,8 +21,6 @@
  * author unknown
  * updated by chegewara
  */
-
-// #define MYDEBUG
 
 
 /****************************************
@@ -24,6 +36,8 @@
 #endif
 
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
+
+#include <Lifter.h>
 
 
 //flag for saving data
@@ -43,7 +57,6 @@ char mqtt_server[40]="192.168.178.100";
 char mqtt_port[6] = "1883";
 char mqtt_topic[40] = "TACX2MQTT";
 //#define RESET_BTN_PIN 2
-
 
 
 /****************************************
@@ -134,19 +147,40 @@ uint8_t Page25Bytes[13] = {
 // Besides what is mechanically possible there are also limits in what is physically pleasant
 // The following Min and Max values should be within the limits of the mechanically feasible values of above !!!
 // Minimally Allowed Raw Grade Value that should not be exceeded: -5%!
-#define ARGVMIN 19500
+int aRGVmin = 19500;
 // Maximally Allowed Raw Grade Value that should not be exceeded: 15%!
-#define ARGVMAX 21500
+int aRGVmax = 21500;
 // set value for a flat road = 0% grade 
 // 1000 is a 10% road grade --> added to the minimal position is equiv. of 0% road grade
 // result needs to be corrected for the measure offset
 long RawgradeValue = (RGVMIN + 1000) - MEASUREOFFSET; 
 float gradePercentValue = 0;
 
+int GradeChangeFactor = 100; // 100% means no effect, 50% means only halved up/down steps --> Road Grade Change Factor
+// Grade of a road is defined as a measure of the road's steepness as it rises and falls along its route
+
 // TACX trainer calculated & measured basic cycling data
 long PowerValue = 0;
 uint8_t InstantaneousCadence = 0;
 long SpeedValue = 0;
+
+
+
+/****************************************
+ *  Lifter Settings
+ * ***************************************/
+// Decalaration of Lifter Class for control of the low level up/down movement
+Lifter lift;
+// Global variables for LIFTER position control --> RawGradeValue has been defined/set previously!!
+int16_t TargetPosition = map(RawgradeValue, RGVMIN, RGVMAX, MAXPOSITION, MINPOSITION);
+bool IsBasicMotorFunctions = false; // Mechanical motor functions
+Ticker lifterTicker;
+
+
+//------------ include Screen ---------------
+#include "Screen.h"
+
+
 
 void SendRequestPage51()
 {
@@ -187,7 +221,6 @@ void sendRequest()
   }
 }
 
-
 static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, uint8_t *pData, size_t length, bool isNotify)
 {
   uint8_t buffer[20 + 1];
@@ -201,7 +234,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     {
       buffer[i] = *pData++;
 #ifdef MYDEBUG
-    Serial.printf("%02X ", buffer[i], HEX);
+      Serial.printf("%02X ", buffer[i], HEX);
 #endif
     }
   }
@@ -233,16 +266,20 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       //  40000                +200%
       // -------------------------------------
       // Take into account the measuring offset
+      long ReferenceValue = (RGVMIN + 1000); // Reference is a flat road 0% inclination
+      RawgradeValue = ReferenceValue + long((RawgradeValue - ReferenceValue) * GradeChangeFactor / 100);
+      gradePercentValue = float((RawgradeValue - 20000)) / 100;
+
       RawgradeValue = RawgradeValue - MEASUREOFFSET;
       // Test for Maximally en Minimally Allowed Raw Grade Values ----------------------------------------
-      if (RawgradeValue < ARGVMIN)
+      if (RawgradeValue < aRGVmin)
       {
-        RawgradeValue = ARGVMIN;
-      } // Do not allow lower values than ARGVMIN !!
-      if (RawgradeValue > ARGVMAX)
+        RawgradeValue = aRGVmin;
+      } // Do not allow lower values than aRGVmin  !!
+      if (RawgradeValue > aRGVmax)
       {
-        RawgradeValue = ARGVMAX;
-      } // Do not allow values to exceed ARGVMAX !!
+        RawgradeValue = aRGVmax;
+      } // Do not allow values to exceed aRGVmax !!
         // End test --> continue ---------------------------------------------------------------------------
 #ifdef MYDEBUG
       Serial.printf("--Page 51 received - RawgradeValue: %05d  ", RawgradeValue);
@@ -250,13 +287,12 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
       Serial.println();
 #endif
 
-    if(mqttClient.connected()){
-      char buffer[128];
-      snprintf(buffer, sizeof(buffer), "%s/Gradient", mqtt_topic);
-      mqttClient.publish(buffer,String(gradePercentValue).c_str());
-    }
-
-
+      if (mqttClient.connected())
+      {
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "%s/Gradient", mqtt_topic);
+        mqttClient.publish(buffer, String(gradePercentValue).c_str());
+      }
     }
     break;
   case 0x19:
@@ -270,14 +306,15 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     // POWER is stored in 1.5 byte !!!
     uint8_t msb_InstantaneousPower = (buffer[10] & 0x0F); // bits 0:3 --> MSNibble only!!!
     PowerValue = lsb_InstantaneousPower + msb_InstantaneousPower * 256;
-    if(mqttClient.connected()){
+    if (mqttClient.connected())
+    {
       char buffer[128];
       snprintf(buffer, sizeof(buffer), "%s/Power", mqtt_topic);
-      mqttClient.publish(buffer,String(PowerValue).c_str());
+      mqttClient.publish(buffer, String(PowerValue).c_str());
       snprintf(buffer, sizeof(buffer), "%s/Cadence", mqtt_topic);
-      mqttClient.publish(buffer,String(InstantaneousCadence).c_str());
-       snprintf(buffer, sizeof(buffer), "%s/UpdateEventCount", mqtt_topic);
-      mqttClient.publish(buffer,String(UpdateEventCount).c_str());
+      mqttClient.publish(buffer, String(InstantaneousCadence).c_str());
+      snprintf(buffer, sizeof(buffer), "%s/UpdateEventCount", mqtt_topic);
+      mqttClient.publish(buffer, String(UpdateEventCount).c_str());
     }
 #ifdef MYDEBUG
     Serial.printf("Event count: %03d  ", UpdateEventCount);
@@ -285,7 +322,6 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     Serial.printf(" - Power in Watts: %04d  ", PowerValue);
     Serial.println();
 #endif
-
   }
   break;
   case 0x10:
@@ -299,14 +335,15 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     uint8_t msb_SpeedValue = buffer[9];
     SpeedValue = ((lsb_SpeedValue + msb_SpeedValue * 256) / 1000) * 3.6; // in units of 0,001 m/s naar km/h
 
-    if(mqttClient.connected()){
+    if (mqttClient.connected())
+    {
       char buffer[128];
       snprintf(buffer, sizeof(buffer), "%s/DistanceTravelled", mqtt_topic);
-      mqttClient.publish(buffer,String(DistanceTravelled).c_str());
+      mqttClient.publish(buffer, String(DistanceTravelled).c_str());
       snprintf(buffer, sizeof(buffer), "%s/SpeedValue", mqtt_topic);
-      mqttClient.publish(buffer,String(SpeedValue).c_str());
+      mqttClient.publish(buffer, String(SpeedValue).c_str());
       snprintf(buffer, sizeof(buffer), "%s/ElapsedTime", mqtt_topic);
-      mqttClient.publish(buffer,String(ElapsedTime).c_str());
+      mqttClient.publish(buffer, String(ElapsedTime).c_str());
     }
 
 #ifdef MYDEBUG
@@ -330,6 +367,7 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     return;
   }
   }
+  ShowValuesOnOled();
 }
 
 class MyClientCallback : public BLEClientCallbacks {
@@ -671,18 +709,54 @@ bool reconnect()
 
 
 void setup() {
-  M5.begin(); 
+#ifdef USB_POWERED
+  // M5.begin(); 
+  M5.begin(true,true,true,true,kMBusModeOutput);
   // M5.begin(true,true,true,true,kMBusModeInput);
   //  kMBusModeOutput,powered by USB or Battery  
   //  kMBusModeInput,powered by outside input
+#else
+  M5.begin(true,true,true,true,kMBusModeInput);
+#endif
+  
   Serial.begin(115200);
 #ifdef RESET_BTN_PIN
   pinMode(RESET_BTN_PIN, INPUT);
 #endif
+  ShowOnOledLarge("", "TacxClimb", "0.1", 500,RED);
+
+  readSettings();
+
+  // Initialize Lifter Class data, variables, test and set to work !
+  lift.Init(actuatorOutPin1, actuatorOutPin2, MINPOSITION, MAXPOSITION, BANDWIDTH);
+  if (!lift.TestBasicMotorFunctions())
+  {
+    ShowOnOledLarge("Testing", "Functions", "Failed!", 500);
+    IsBasicMotorFunctions = false; // Not working properly
+  }
+  else
+  {
+    ShowOnOledLarge("Testing", "Functions", "Succes!", 500);
+    // Is working properly
+    IsBasicMotorFunctions = true;
+    // Put Simcline in neutral: flat road position
+    SetNeutralValues(); // set relevant flat road values
+    while (ControlUpDownMovement()) // wait until flat road position is reached
+     {
+      delay(1);
+    }
+  }
+  
+  lifterTicker.attach_ms(100, fct_lifterTicker);
+
+
   //SetupWifi
   Serial.println("Starting Wifi...");
+  ShowOnOledLarge("Connecting", "WiFi", "...!");
   setupWiFi();
+  ShowOnOledLarge("Connecting", "MQTT", "...!");
   setupMQTT();
+  ShowOnOledLarge("Connecting", "BLE", "...!");
   Serial.println("Starting Arduino BLE Client application...");
   BLEDevice::init("");
 
@@ -723,6 +797,7 @@ void loop() {
   if (doConnect == true) {
     if (connectToServer()) {
       Serial.println("We are now connected to the BLE Server.");
+      ShowOnOledLarge("Connecting", "BLE connected", "...!");
     } else {
       Serial.println("We have failed to connect to the server; there is nothin more we will do.");
     }
@@ -737,5 +812,201 @@ void loop() {
     BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
   
+  M5.update(); //Read the press state of the key.
+  checkButtonPress();
 
 } // End of loop
+
+
+
+
+
+
+bool ControlUpDownMovement(void) {
+  // Handle mechanical movement i.e. wheel position in accordance with Road Inclination
+  // Map RawgradeValue ranging from 0 to 40.000 on the
+  // TargetPosition (between MINPOSITION and MAXPOSITION) of the Lifter
+  // Notice 22000 is equivalent to +20% incline and 19000 to -10% incline
+  RawgradeValue = constrain(RawgradeValue, RGVMIN, RGVMAX); // Keep values within the safe range
+  TargetPosition = map(RawgradeValue, RGVMIN, RGVMAX, MAXPOSITION, MINPOSITION);
+#ifdef MYDEBUG
+  Serial.println(); Serial.printf("RawgradeValue: %05d ", RawgradeValue, DEC); Serial.printf(" TargetPosition: %03d", TargetPosition, DEC);
+#endif
+  lift.SetTargetPosition(TargetPosition);
+  lift.gotoTargetPosition();
+  return (lift.GetOffsetPosition() == 0); //return true if target/error is reached
+}
+
+
+void SetNeutralValues(void) {
+  RawgradeValue = (RGVMIN + 1000) - MEASUREOFFSET;
+  TargetPosition = map(RawgradeValue, RGVMIN, RGVMAX, MAXPOSITION, MINPOSITION);
+  lift.SetTargetPosition(TargetPosition);
+}
+
+
+void fct_lifterTicker(){
+  if (IsBasicMotorFunctions) {
+    while (ControlUpDownMovement()) {
+    }
+  }
+}
+
+long buttonMenueReset=0;
+void ButtonMenueResetTimer(){
+  buttonMenueReset=millis()+(1000*15);
+}
+
+void checkButtonPress()
+{
+  if (menue_Btn == M5BUTTON::NONE)
+  {
+    if (M5.BtnA.wasReleased() || M5.BtnA.pressedFor(1000, 200))
+    {
+      M5.Lcd.print('A');
+      menue_Btn = M5BUTTON::BTN_A;
+      ButtonMenueResetTimer();
+    }
+    else if (M5.BtnB.wasReleased() || M5.BtnB.pressedFor(1000, 200))
+    {
+      M5.Lcd.print('B');
+      menue_Btn = M5BUTTON::BTN_B;
+      ButtonMenueResetTimer();
+    }
+    else if (M5.BtnC.wasReleased() || M5.BtnC.pressedFor(1000, 200))
+    {
+      M5.Lcd.print('C');
+      menue_Btn = M5BUTTON::BTN_C;
+      ButtonMenueResetTimer();
+    }
+  }
+  else
+  {
+    if (menue_Btn == M5BUTTON::BTN_A)
+    {
+      if (M5.BtnA.wasReleased())
+      {
+        GradeChangeFactor++;
+        ButtonMenueResetTimer();
+      }
+      if (M5.BtnC.wasReleased())
+      {
+        GradeChangeFactor--;
+        ButtonMenueResetTimer();
+      }
+    }
+
+    if (menue_Btn == M5BUTTON::BTN_B)
+    {
+      if (M5.BtnA.wasReleased())
+      {
+        aRGVmax++;
+        ButtonMenueResetTimer();
+      }
+      if (M5.BtnC.wasReleased())
+      {
+        aRGVmax--;
+        ButtonMenueResetTimer();
+      }
+    }
+
+    if (menue_Btn == M5BUTTON::BTN_C)
+    {
+      if (M5.BtnA.wasReleased())
+      {
+        aRGVmin++;
+        ButtonMenueResetTimer();
+      }
+      if (M5.BtnC.wasReleased())
+      {
+        aRGVmin--;
+        ButtonMenueResetTimer();
+      }
+    }
+  }
+
+
+
+  if(millis()-buttonMenueReset<0){
+      menue_Btn = M5BUTTON::NONE;
+      saveSettings();
+  }
+
+
+}
+
+
+
+
+void readSettings(){
+   if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/Taxc.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/Taxc.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+
+        configFile.readBytes(buf.get(), size);
+
+#ifdef ARDUINOJSON_VERSION_MAJOR >= 6
+        DynamicJsonDocument json(1024);
+        auto deserializeError = deserializeJson(json, buf.get());
+        serializeJson(json, Serial);
+        if ( ! deserializeError ) {
+#else
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+#endif
+          Serial.println("\nparsed json");
+          aRGVmin=json["aRGVmin"];
+          aRGVmax=json["aRGVmax"];
+          GradeChangeFactor=json["GradeChangeFactor"];
+        } else {
+          Serial.println("failed to load json config");
+        }
+        configFile.close();
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+}
+
+
+void saveSettings(){
+    //save the custom parameters to FS
+  if (SPIFFS.begin())
+  {
+    Serial.println("saving config");
+#ifdef ARDUINOJSON_VERSION_MAJOR >= 6
+    DynamicJsonDocument json(1024);
+#else
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.createObject();
+#endif
+    json["aRGVmin"] = aRGVmin;
+    json["aRGVmax"] = aRGVmax;
+    json["GradeChangeFactor"] = GradeChangeFactor;
+    File configFile = SPIFFS.open("/Taxc.json", "w");
+    if (!configFile) {
+      Serial.println("failed to open config file for writing");
+    }
+
+#ifdef ARDUINOJSON_VERSION_MAJOR >= 6
+    serializeJson(json, Serial);
+    serializeJson(json, configFile);
+#else
+    json.printTo(Serial);
+    json.printTo(configFile);
+#endif
+    configFile.close();
+    //end save
+  }
+}

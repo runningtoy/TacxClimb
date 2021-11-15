@@ -28,13 +28,15 @@ public:
  
   Lifter();
   void Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH);
-  int16_t GetVL6180X_Range_Reading();
+  int16_t GetVL53L0X_Range_Reading();
+  int16_t GetPosition();
   void SetTargetPosition(int16_t Tpos);
   bool TestBasicMotorFunctions();
   int GetOffsetPosition();
   void moveActuatorUp();
   void moveActuatorDown();
   void brakeActuator();
+  void gotoTargetPosition();
 };
 
 #endif
