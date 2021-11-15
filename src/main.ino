@@ -672,6 +672,9 @@ bool reconnect()
 
 void setup() {
   M5.begin(); 
+  // M5.begin(true,true,true,true,kMBusModeInput);
+  //  kMBusModeOutput,powered by USB or Battery  
+  //  kMBusModeInput,powered by outside input
   Serial.begin(115200);
 #ifdef RESET_BTN_PIN
   pinMode(RESET_BTN_PIN, INPUT);
