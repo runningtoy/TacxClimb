@@ -7,8 +7,12 @@
 
 
 // Feather M5Stack CORE2 I/O Pin declarations for connection to Motor driver board MDD3A
-#define actuatorOutPin1 2    // --> A0/P0.02 connected to pin M1A of the MDD3A Motor Driver board
-#define actuatorOutPin2 3    // --> A1/P0.03 connected to the M1B of the MDD3A Motor Driver board
+#define actuatorOutPin1 27    // --> GPIO27 connected to pin M1A of the MDD3A Motor Driver board
+#define actuatorOutPin2 19    // --> GPIO19 connected to the M1B of the MDD3A Motor Driver board
+
+
+#define I2C_SDA 32
+#define I2C_SCL 33
 
 
 // #define RESET_BTN_PIN
