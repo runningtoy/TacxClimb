@@ -1,0 +1,24 @@
+failed to mount FS
+Starting Arduino BLE Client application...
+Guru Meditation Error: Core  1 panic'ed (Interrupt wdt timeout on CPU1)
+Core 1 register dump:
+PC      : 0x400974fd  PS      : 0x00060334  A0      : 0x80099536  A1      : 0x3ffcd630
+A2      : 0x37735234  A3      : 0x0000abab  A4      : 0xb33fffff  A5      : 0x00000001  
+A6      : 0x00060520  A7      : 0x0000cdcd  A8      : 0x4010a1ec  A9      : 0x3ffcd750
+A10     : 0x3f430ca8  A11     : 0x00000069  A12     : 0x3f430fdc  A13     : 0x3f430d34  
+A14     : 0x00ff0000  A15     : 0xff000000  SAR     : 0x00000020  EXCCAUSE: 0x00000006
+EXCVADDR: 0x00000000  LBEG    : 0x4009361c  LEND    : 0x40093638  LCOUNT  : 0xffffffff
+
+ELF file SHA256: 0000000000000000
+
+Backtrace: 0x400974fd:0x3ffcd630 0x40099533:0x3ffcd660 0x40099c71:0x3ffcd680 0x400821e9:0x3ffcd6a0 0x40082420:0x3ffcd6c0 0x40082485:0x3ffcd6e0 0x4012ac75:0x3ffcd730 0x40129f39:0x3ffcd750 0x400e7e5c:0x3ffcd780 0x400d4f9a:0x3ffcd7b0 0x400ef752:0x3ffcd820 0x400964ca:0x3ffcd840
+
+Core 0 register dump:
+PC      : 0x40015c3d  PS      : 0x00060434  A0      : 0x80015e4d  A1      : 0x3ffd0e20
+A2      : 0x3ffd0f30  A3      : 0x3ffd0e90  A4      : 0xe1a7f4d9  A5      : 0x00000008  
+A6      : 0x3ffd0e90  A7      : 0x3ffd0f30  A8      : 0x3ffd0f48  A9      : 0x00000006
+A10     : 0x271fae04  A11     : 0xffffffff  A12     : 0x00000000  A13     : 0x271fae04
+A14     : 0x00060220  A15     : 0x00000000  SAR     : 0x0000001f  EXCCAUSE: 0x00000006  
+EXCVADDR: 0x00000000  LBEG    : 0x4000c46c  LEND    : 0x4000c477  LCOUNT  : 0x00000000
+
+ELF file SHA256: 0000000000000000

@@ -1,0 +1,28 @@
+SBG::READ
+SBG:Guru Meditation Error: Core  0 panic'ed (Cache disabled but cached memory region accessed)
+Core 0 register dump:
+PC      : 0x4016b268  PS      : 0x00060034  A0      : 0x80081290  A1      : 0x3ffbe180  
+A2      : 0x3ffc1878  A3      : 0x00000001  A4      : 0xac2bdaf7  A5      : 0x00002004  
+A6      : 0x3ffc3378  A7      : 0xffffdffb  A8      : 0x800811b2  A9      : 0x00000000  
+A10     : 0x3ffb98cc  A11     : 0x3ffbe18c  A12     : 0x8008235c  A13     : 0x3ffb9d00  
+A14     : 0x00000001  A15     : 0x3ffb7e78  SAR     : 0x00000015  EXCCAUSE: 0x00000007  
+EXCVADDR: 0x00000000  LBEG    : 0x00000000  LEND    : 0x00000000  LCOUNT  : 0x00000000  
+Core 0 was running in ISR context:
+EPC1    : 0x40086d3f  EPC2    : 0x00000000  EPC3    : 0x00000000  EPC4    : 0x4016b268
+
+Backtrace: 0x4016b268:0x3ffbe180 0x4008128d:0x3ffbe1b0 0x40084a89:0x3ffbe1d0 0x40086d3c:0x3ffb9d80 0x40082ea3:0x3ffb9da0 0x40089681:0x3ffb9dc0
+
+Rebooting...
+ets Jun  8 2016 00:22:57
+
+rst:0x3 (SW_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0018,len:4
+load:0x3fff001c,len:1044
+load:0x40078000,len:8896
+load:0x40080400,len:5828
+entry 0x400806ac
+CPU0 reset reason:
+SW_RESET

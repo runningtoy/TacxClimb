@@ -56,7 +56,7 @@ uint8_t wifi_icon40x40 [200] PROGMEM = {
 
 void ShowOnOledLarge(char *Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pause=1,uint16_t headerColor=BLACK){
   M5.Lcd.fillScreen(WHITE); 
-  M5.Lcd.clearDisplay();
+  // M5.Lcd.clearDisplay();
   M5.Lcd.setTextColor(headerColor);
   M5.Lcd.drawBitmap(116, 0, w, h, icon);
   if (Line1) {
@@ -70,7 +70,7 @@ void ShowOnOledLarge(char *Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pa
 
 void ShowOnOledLarge(String Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pause=1,uint16_t headerColor=BLACK){
   M5.Lcd.fillScreen(WHITE); 
-  M5.Lcd.clearDisplay();
+  // M5.Lcd.clearDisplay();
   M5.Lcd.setTextColor(headerColor);
   M5.Lcd.drawBitmap(116, 0, w, h, icon);
   if (Line1) {
@@ -87,7 +87,7 @@ void ShowOnOledLarge(char *Line1, char *Line2, char *Line3, uint16_t Pause=1,uin
   // Clear and set Oled to display 3 line info -> centered
   int pos = 1;
   M5.Lcd.fillScreen(WHITE); 
-  M5.Lcd.clearDisplay();
+  // M5.Lcd.clearDisplay();
   M5.Lcd.setTextColor(headerColor);
   if (mqttClient.connected()) { // show BLE icon
     // M5.Lcd.drawBitmap(116, 0, 16, 16, bluetooth_icon16x16);
@@ -117,7 +117,7 @@ void ShowOnOledLarge(char *Line1, char *Line2, char *Line3, uint16_t Pause=1,uin
 
 
 void BuildBasicOledScreen(void) {
-  M5.Lcd.clearDisplay(); // clean the oled screen
+  // M5.Lcd.clearDisplay(); // clean the oled screen
   M5.Lcd.fillScreen(WHITE); 
   M5.Lcd.setTextColor(BLACK);
   if (mqttClient.connected()) { // show BLE icon

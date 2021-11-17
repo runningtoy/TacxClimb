@@ -63,26 +63,27 @@ char mqtt_topic[40] = "TACX2MQTT";
  *  BLE Settings
  * ***************************************/
 
-#include "BLEDevice.h"
+// #include "BLEDevice.h"
 //#include "BLEScan.h"
+#include <NimBLEDevice.h>
 
 
 // The remote service we wish to connect to.
 //static BLEUUID serviceUUID("4fafc201-1fb5-459e-8fcc-c5c9c331914b");
-static BLEUUID serviceUUID("6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E");
+static NimBLEUUID serviceUUID("6E40FEC1-B5A3-F393-E0A9-E50E24DCCA9E");
 // The characteristic of the remote service we are interested in.
 // static BLEUUID    charUUID("beb5483e-36e1-4688-b7f5-ea07361b26a8");
 
-static BLEUUID    FCE_RX_UUID("6E40FEC2-B5A3-F393-E0A9-E50E24DCCA9E");
-static BLEUUID    FCE_TX_UUID("6E40FEC3-B5A3-F393-E0A9-E50E24DCCA9E");
+static NimBLEUUID    FCE_RX_UUID("6E40FEC2-B5A3-F393-E0A9-E50E24DCCA9E");
+static NimBLEUUID    FCE_TX_UUID("6E40FEC3-B5A3-F393-E0A9-E50E24DCCA9E");
 
 
 static boolean doConnect = false;
 static boolean connected = false;
 static boolean doScan = false;
-static BLERemoteCharacteristic* FCE_TX;
-static BLERemoteCharacteristic* FCE_RX;
-static BLEAdvertisedDevice* myDevice;
+static NimBLERemoteCharacteristic* FCE_TX;
+static NimBLERemoteCharacteristic* FCE_RX;
+static NimBLEAdvertisedDevice* myDevice;
 
 
 
@@ -367,7 +368,6 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     return;
   }
   }
-  ShowValuesOnOled();
 }
 
 class MyClientCallback : public BLEClientCallbacks {
@@ -478,27 +478,29 @@ bool connectToServer() {
 /****************************************
  *  Scan for BLE servers and find the first one that advertises the service we are looking for.
  * ***************************************/
-class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
- /**
+// class MyAdvertisedDeviceCallbacks: public NimBLEAdvertisedDeviceCallbacks {
+class AdvertisedDeviceCallbacks : public NimBLEAdvertisedDeviceCallbacks
+{
+  /**
    * Called for each advertising BLE server.
    */
-  void onResult(BLEAdvertisedDevice advertisedDevice) {
+  void onResult(NimBLEAdvertisedDevice* advertisedDevice)
+  {
     Serial.print("BLE Advertised Device found: ");
-    Serial.println(advertisedDevice.toString().c_str());
+    Serial.println(advertisedDevice->toString().c_str());
 
     // We have found a device, let us now see if it contains the service we are looking for.
-    if (advertisedDevice.haveServiceUUID() && advertisedDevice.isAdvertisingService(serviceUUID)) {
+    if (advertisedDevice->haveServiceUUID() && advertisedDevice->isAdvertisingService(serviceUUID))
+    {
 
       BLEDevice::getScan()->stop();
-      myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      // myDevice = new BLEAdvertisedDevice(advertisedDevice);
+      myDevice=advertisedDevice;
       doConnect = true;
       doScan = true;
-
     } // Found our server
-  } // onResult
-}; // MyAdvertisedDeviceCallbacks
-
-
+  }   // onResult
+};    // MyAdvertisedDeviceCallbacks
 
 /****************************************
  *  WiFiManager Function
@@ -730,47 +732,58 @@ void setup() {
 
   // Initialize Lifter Class data, variables, test and set to work !
   lift.Init(actuatorOutPin1, actuatorOutPin2, MINPOSITION, MAXPOSITION, BANDWIDTH);
-  if (!lift.TestBasicMotorFunctions())
-  {
-    ShowOnOledLarge("Testing", "Functions", "Failed!", 500);
-    IsBasicMotorFunctions = false; // Not working properly
-  }
-  else
-  {
-    ShowOnOledLarge("Testing", "Functions", "Succes!", 500);
-    // Is working properly
-    IsBasicMotorFunctions = true;
-    // Put Simcline in neutral: flat road position
-    SetNeutralValues(); // set relevant flat road values
-    while (ControlUpDownMovement()) // wait until flat road position is reached
-     {
-      delay(1);
-    }
-  }
+  // if (!lift.TestBasicMotorFunctions())
+  // {
+  //   ShowOnOledLarge("Testing", "Functions", "Failed!", 500);
+  //   IsBasicMotorFunctions = false; // Not working properly
+  // }
+  // else
+  // {
+  //   ShowOnOledLarge("Testing", "Functions", "Succes!", 500);
+  //   // Is working properly
+  //   IsBasicMotorFunctions = true;
+  //   // Put Simcline in neutral: flat road position
+  //   SetNeutralValues(); // set relevant flat road values
+  //   while (ControlUpDownMovement()) // wait until flat road position is reached
+  //    {
+  //     delay(1);
+  //   }
+  // }
   
   lifterTicker.attach_ms(100, fct_lifterTicker);
 
 
   //SetupWifi
   Serial.println("Starting Wifi...");
-  ShowOnOledLarge("Connecting Wifi",wifi_icon40x40,40,40);
+  // ShowOnOledLarge("Connecting Wifi",wifi_icon40x40,40,40);
+  ShowOnOledLarge("", "Connecting Wifi", FIRMWARE_VERSION, 500,RED);
   setupWiFi();
-  ShowOnOledLarge("Connecting MQTT",mqtt_icon32x28,32,28);
+  // ShowOnOledLarge("Connecting MQTT",mqtt_icon32x28,32,28);
+  ShowOnOledLarge("", "Connecting MQTT", FIRMWARE_VERSION, 500,RED);
+
   setupMQTT();
-  ShowOnOledLarge("Connecting BLE",bluetooth_icon16x16,16,16);
+  ShowOnOledLarge("", "connecting BLE", FIRMWARE_VERSION, 500,RED);
+  // ShowOnOledLarge("Connecting BLE",bluetooth_icon16x16,16,16);
   
   Serial.println("Starting Arduino BLE Client application...");
-  BLEDevice::init("");
+  NimBLEDevice::init("");
+
 
   // Retrieve a Scanner and set the callback we want to use to be informed when we
   // have detected a new device.  Specify that we want active scanning and start the
   // scan to run for 5 seconds.
-  BLEScan* pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  NimBLEScan* pBLEScan = NimBLEDevice::getScan();
+  Serial.println("[1] Starting Arduino BLE Client application...");
+  pBLEScan->setAdvertisedDeviceCallbacks(new AdvertisedDeviceCallbacks());
+  Serial.println("[2] Starting Arduino BLE Client application...");
   pBLEScan->setInterval(1349);
+  Serial.println("[3] Starting Arduino BLE Client application...");
   pBLEScan->setWindow(449);
+  Serial.println("[4] Starting Arduino BLE Client application...");
   pBLEScan->setActiveScan(true);
+  Serial.println("[5] Starting Arduino BLE Client application...");
   pBLEScan->start(30, false);
+  Serial.println("[6] Starting Arduino BLE Client application...");
 } // End of setup.
 
 
@@ -799,7 +812,10 @@ void loop() {
   if (doConnect == true) {
     if (connectToServer()) {
       Serial.println("We are now connected to the BLE Server.");
-      ShowOnOledLarge("BLE connected",bluetooth_icon16x16,16,16,GREEN);
+      // ShowOnOledLarge("BLE connected",bluetooth_icon16x16,16,16,GREEN);
+      char buffer[128];
+      snprintf(buffer, sizeof(buffer), "%s", myDevice->toString());
+      ShowOnOledLarge("", "Connected to ", buffer, 500,GREEN);
     } else {
       Serial.println("We have failed to connect to the server; there is nothin more we will do.");
     }
@@ -811,11 +827,12 @@ void loop() {
   if (connected) {
     sendRequest();      //send request every xx ms
   }else if(doScan){
-    BLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
+    NimBLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
   
   M5.update(); //Read the press state of the key.
   checkButtonPress();
+  ShowValuesOnOled();
 
 } // End of loop
 
@@ -865,19 +882,19 @@ void checkButtonPress()
   {
     if (M5.BtnA.wasReleased() || M5.BtnA.pressedFor(1000, 200))
     {
-      M5.Lcd.print('A');
+      Serial.println('A');
       menue_Btn = M5BUTTON::BTN_A;
       ButtonMenueResetTimer();
     }
     else if (M5.BtnB.wasReleased() || M5.BtnB.pressedFor(1000, 200))
     {
-      M5.Lcd.print('B');
+       Serial.println('B');
       menue_Btn = M5BUTTON::BTN_B;
       ButtonMenueResetTimer();
     }
     else if (M5.BtnC.wasReleased() || M5.BtnC.pressedFor(1000, 200))
     {
-      M5.Lcd.print('C');
+       Serial.println('D');
       menue_Btn = M5BUTTON::BTN_C;
       ButtonMenueResetTimer();
     }
