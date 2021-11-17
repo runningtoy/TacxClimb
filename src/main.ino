@@ -832,6 +832,7 @@ void loop() {
   
   M5.update(); //Read the press state of the key.
   checkButtonPress();
+
   ShowValuesOnOled();
 
 } // End of loop
@@ -871,7 +872,7 @@ void fct_lifterTicker(){
   }
 }
 
-long buttonMenueReset=0;
+unsigned long buttonMenueReset=ULONG_MAX;
 void ButtonMenueResetTimer(){
   buttonMenueReset=millis()+(1000*15);
 }
@@ -894,7 +895,7 @@ void checkButtonPress()
     }
     else if (M5.BtnC.wasReleased() || M5.BtnC.pressedFor(1000, 200))
     {
-       Serial.println('D');
+       Serial.println('C');
       menue_Btn = M5BUTTON::BTN_C;
       ButtonMenueResetTimer();
     }
@@ -943,15 +944,12 @@ void checkButtonPress()
       }
     }
   }
-
-
-
-  if(millis()-buttonMenueReset<0){
+  if(buttonMenueReset<millis()){
       menue_Btn = M5BUTTON::NONE;
+      Serial.println("REset buttonMenueReset ");
       saveSettings();
+      buttonMenueReset=ULONG_MAX;
   }
-
-
 }
 
 

@@ -53,9 +53,21 @@ uint8_t wifi_icon40x40 [200] PROGMEM = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
+uint16_t screenColor = 12;
+
+void clearScreen(uint16_t _screenColor){
+  // M5.Lcd.clearDisplay();
+  // if(screenColor!=_screenColor){
+  //   screenColor=_screenColor;
+  //   M5.Lcd.fillScreen(screenColor);
+  // }
+  M5.Lcd.fillScreen(WHITE);
+}
+
+
 
 void ShowOnOledLarge(char *Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pause=1,uint16_t headerColor=BLACK){
-  M5.Lcd.fillScreen(WHITE); 
+  clearScreen(WHITE);
   // M5.Lcd.clearDisplay();
   M5.Lcd.setTextColor(headerColor);
   M5.Lcd.drawBitmap(116, 0, w, h, icon);
@@ -69,8 +81,7 @@ void ShowOnOledLarge(char *Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pa
 }
 
 void ShowOnOledLarge(String Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t Pause=1,uint16_t headerColor=BLACK){
-  M5.Lcd.fillScreen(WHITE); 
-  // M5.Lcd.clearDisplay();
+  clearScreen(WHITE);  // M5.Lcd.clearDisplay();
   M5.Lcd.setTextColor(headerColor);
   M5.Lcd.drawBitmap(116, 0, w, h, icon);
   if (Line1) {
@@ -83,11 +94,11 @@ void ShowOnOledLarge(String Line1, uint8_t* icon,int16_t w, int16_t h,uint16_t P
 }
 
 
+
 void ShowOnOledLarge(char *Line1, char *Line2, char *Line3, uint16_t Pause=1,uint16_t headerColor=BLACK) {
   // Clear and set Oled to display 3 line info -> centered
   int pos = 1;
-  M5.Lcd.fillScreen(WHITE); 
-  // M5.Lcd.clearDisplay();
+  clearScreen(WHITE);
   M5.Lcd.setTextColor(headerColor);
   if (mqttClient.connected()) { // show BLE icon
     // M5.Lcd.drawBitmap(116, 0, 16, 16, bluetooth_icon16x16);
@@ -118,7 +129,7 @@ void ShowOnOledLarge(char *Line1, char *Line2, char *Line3, uint16_t Pause=1,uin
 
 void BuildBasicOledScreen(void) {
   // M5.Lcd.clearDisplay(); // clean the oled screen
-  M5.Lcd.fillScreen(WHITE); 
+  clearScreen(WHITE);
   M5.Lcd.setTextColor(BLACK);
   if (mqttClient.connected()) { // show BLE icon
     //  M5.Lcd.drawBitmap(116, 0, 16, 16, bluetooth_icon16x16);
@@ -136,44 +147,56 @@ void BuildBasicOledScreen(void) {
   M5.Lcd.print(F("%"));
 } // ---------------------------
 
-
+unsigned long lastDisplayUpdateValue = 0;
 // Funtion to show measurement data: Grade, Power, Cadence and Speed on Oled screen
 void ShowValuesOnOled(void) {
-  BuildBasicOledScreen();
-  M5.Lcd.setTextColor(RED);
-  char tmp[12];
-  dtostrf(gradePercentValue, 5, 1, tmp); // show sign only if negative
-  M5.Lcd.setCursor(10, 6);
-  M5.Lcd.setTextSize(3);
-  M5.Lcd.print(tmp);
-  sprintf(tmp, "%03d %03d %02d", PowerValue, InstantaneousCadence, int(SpeedValue + 0.5));
-  M5.Lcd.setCursor(4, 44);
-  M5.Lcd.setTextSize(2);
-  M5.Lcd.print(tmp);
-  if(menue_Btn!=M5BUTTON::NONE){
-      switch(menue_Btn){
-          case M5BUTTON::BTN_A:
-                M5.Lcd.setCursor(12, 44);
-                M5.Lcd.setTextSize(2);
-                //sprintf(tmp, "+    %03d%     -",GradeChangeFactor);
-                sprintf(tmp, "+    GradeChangeFactor     -");
-                M5.Lcd.print(tmp);
-          break;
-          case M5BUTTON::BTN_B:
-                M5.Lcd.setCursor(12, 44);
-                M5.Lcd.setTextSize(2);
-                sprintf(tmp, "+    aRGVmax     -");
-                M5.Lcd.print(tmp);
-          break;
-          case M5BUTTON::BTN_C:
-                M5.Lcd.setCursor(12, 44);
-                M5.Lcd.setTextSize(2);
-                sprintf(tmp, "+    aRGVin     -");
-                M5.Lcd.print(tmp);
-          break;
-          default:
-          break;
-      }
-  }
-  M5.Lcd.display();
+   if (millis() - lastDisplayUpdateValue > 100) {
+
+    BuildBasicOledScreen();
+    M5.Lcd.setTextColor(RED);
+    char tmp[30];
+    dtostrf(gradePercentValue, 5, 1, tmp); // show sign only if negative
+    M5.Lcd.setCursor(10, 6);
+    M5.Lcd.setTextSize(3);
+    M5.Lcd.print(tmp);
+    sprintf(tmp, "%03d %03d %02d", PowerValue, InstantaneousCadence, int(SpeedValue + 0.5));
+    M5.Lcd.setCursor(4, 44);
+    M5.Lcd.setTextSize(2);
+    M5.Lcd.print(tmp);
+    if(menue_Btn!=M5BUTTON::NONE){
+        switch(menue_Btn){
+            case M5BUTTON::BTN_A:
+                  M5.Lcd.setCursor(6, 80);
+                  M5.Lcd.setTextSize(2);
+                  sprintf(tmp, "GradeChangeFactor\n\n+    %03d%     -",GradeChangeFactor);
+                  // sprintf(tmp, "+    GradeChangeFactor     -");
+                  // Serial.println(tmp);
+                  // M5.Lcd.drawString(String(tmp),120,M5.Lcd.width()/2);
+                  M5.Lcd.print(tmp);
+            break;
+            case M5BUTTON::BTN_B:
+                  M5.Lcd.setCursor(6, 80);
+                  M5.Lcd.setTextSize(2);
+                  sprintf(tmp, "aRGVmax\n\n+    %03d%     -",aRGVmax);
+                  // sprintf(tmp, "+    aRGVmax     -");
+                  // Serial.println(tmp);
+                  M5.Lcd.print(tmp);
+                  // M5.Lcd.drawString(String(tmp),120,M5.Lcd.width()/2);
+            break;
+            case M5BUTTON::BTN_C:
+                  M5.Lcd.setCursor(6, 80);
+                  M5.Lcd.setTextSize(2);
+                  sprintf(tmp, "aRGVin\n\n+    %03d%     -",aRGVmax);
+                  // sprintf(tmp, "+    aRGVin     -");
+                  // Serial.println(tmp);
+                  M5.Lcd.print(tmp);
+                  // M5.Lcd.drawString(String(tmp),120,M5.Lcd.width()/2);
+            break;
+            default:
+            break;
+        }
+    }
+    M5.Lcd.display();
+    lastDisplayUpdateValue = millis();
+   }
 }// -----------------------------------

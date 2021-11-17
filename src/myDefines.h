@@ -1,4 +1,5 @@
-
+#undef ULONG_MAX
+#define ULONG_MAX (LONG_MAX * 2UL + 1UL)
 
 
 //IF Core is powered by USB/Battery
