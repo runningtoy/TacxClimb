@@ -782,17 +782,11 @@ void setup() {
   // have detected a new device.  Specify that we want active scanning and start the
   // scan to run for 5 seconds.
   NimBLEScan* pBLEScan = NimBLEDevice::getScan();
-  Serial.println("[1] Starting Arduino BLE Client application...");
   pBLEScan->setAdvertisedDeviceCallbacks(new AdvertisedDeviceCallbacks());
-  Serial.println("[2] Starting Arduino BLE Client application...");
   pBLEScan->setInterval(1349);
-  Serial.println("[3] Starting Arduino BLE Client application...");
   pBLEScan->setWindow(449);
-  Serial.println("[4] Starting Arduino BLE Client application...");
   pBLEScan->setActiveScan(true);
-  Serial.println("[5] Starting Arduino BLE Client application...");
-  pBLEScan->start(30, false);
-  Serial.println("[6] Starting Arduino BLE Client application...");
+  pBLEScan->start(BLE_SCAN_TIMEOUT, false);
 
   updateDisplay=true;
 } // End of setup.
@@ -840,7 +834,7 @@ void loop() {
   if (ble_connected) {
     sendRequest();      //send request every xx ms
   }else if(doScan){
-    NimBLEDevice::getScan()->start(0);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
+    NimBLEDevice::getScan()->start(BLE_SCAN_TIMEOUT,false);  // this is just example to start scan after disconnect, most likely there is better way to do it in arduino
   }
   
   M5.update(); //Read the press state of the key.

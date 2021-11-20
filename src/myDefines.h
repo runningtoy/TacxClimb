@@ -15,6 +15,7 @@
 #define I2C_SDA 32
 #define I2C_SCL 33
 
+#define BLE_SCAN_TIMEOUT 30
 
 // #define RESET_BTN_PIN
 

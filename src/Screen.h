@@ -187,11 +187,11 @@ void BuildBasicOledScreen(void)
   M5.Lcd.setTextColor(BLACK);
   if (mqttClient.connected())
   { // show BLE icon
-    M5.Lcd.drawXBitmap(M5.Lcd.width() - wifiLogo_width, (fec_Icon_height - wifiLogo_height)/2, wifiLogo_bits, wifiLogo_width, wifiLogo_height, TFT_GREEN, TFT_WHITE);
+    M5.Lcd.drawXBitmap(M5.Lcd.width() - wifiLogo_width-5, (fec_Icon_height - wifiLogo_height)/2, wifiLogo_bits, wifiLogo_width, wifiLogo_height, TFT_GREEN, TFT_WHITE);
   }
   else
   {
-    M5.Lcd.drawXBitmap(M5.Lcd.width() - wifiLogo_width, (fec_Icon_height - wifiLogo_height)/2, wifiLogo_bits, wifiLogo_width, wifiLogo_height, TFT_RED, TFT_WHITE);
+    M5.Lcd.drawXBitmap(M5.Lcd.width() - wifiLogo_width-5, (fec_Icon_height - wifiLogo_height)/2, wifiLogo_bits, wifiLogo_width, wifiLogo_height, TFT_RED, TFT_WHITE);
   }
   if (ble_connected)
   { // show BLE icon
