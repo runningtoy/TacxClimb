@@ -213,8 +213,8 @@ void ShowValuesOnOled(void) {
    if(updateDisplay){BuildBasicOledScreen();updateDisplay=false;}
    if (millis() - lastDisplayUpdateValue > 100) {
     M5.Lcd.setTextColor(WHITE);
-    M5.Lcd.drawString("           ",M5.Lcd.width()/2,20);
-    M5.Lcd.drawString("                 ",M5.Lcd.width()/2,120);
+    m5.Lcd.fillRect(M5.Lcd.width()/4,20,M5.Lcd.width()/2,30,TFT_WHITE);
+    M5.Lcd.fillRect(0,120,M5.Lcd.width(),25,TFT_WHITE);
     M5.Lcd.setTextColor(RED);
     char tmp[30];
     M5.Lcd.setTextSize(4);

@@ -741,14 +741,15 @@ void setup() {
 
   // Initialize Lifter Class data, variables, test and set to work !
   lift.Init(actuatorOutPin1, actuatorOutPin2, MINPOSITION, MAXPOSITION, BANDWIDTH);
+  ShowOnOledLarge("", "Motortest","...", 100,TFT_BLACK);
   // if (!lift.TestBasicMotorFunctions())
   // {
-  //   ShowOnOledLarge("Testing", "Functions", "Failed!", 500);
+  //   ShowOnOledLarge("", "Motortest","FAILED", 500,RED);
   //   IsBasicMotorFunctions = false; // Not working properly
   // }
   // else
   // {
-  //   ShowOnOledLarge("Testing", "Functions", "Succes!", 500);
+  //   ShowOnOledLarge("", "Motortest","FAILED", Succes,TF_GREEN); 
   //   // Is working properly
   //   IsBasicMotorFunctions = true;
   //   // Put Simcline in neutral: flat road position
