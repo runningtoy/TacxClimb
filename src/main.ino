@@ -8,11 +8,11 @@ typedef enum M5BUTTON{  // <-- the use of typedef is optional
   BTN_A,
   BTN_B,
   BTN_C,
-  NONE
+  BTN_NONE
 };
 
 
-M5BUTTON menue_Btn=M5BUTTON::NONE; // <-- the actual instance
+M5BUTTON menue_Btn=M5BUTTON::BTN_NONE; // <-- the actual instance
 
 
 /**
@@ -599,27 +599,13 @@ void setupWiFi() {
   //reset settings - for testing
   //wifiManager.resetSettings();
 
-#ifdef RESET_BTN_PIN
-  //reset settings button press - for testing
-  if (digitalRead(RESET_BTN_PIN) == LOW)
+  M5.update();
+  if (M5.BtnA.read())
   {
-    // poor mans debounce/press-hold, code not ideal for production
-    delay(50);
-    if (digitalRead(RESET_BTN_PIN) == LOW)
-    {
-      Serial.println("Button Pressed");
-      // still holding button for 3000 ms, reset settings, code not ideaa for production
-      delay(3000); // reset delay hold
-      if (digitalRead(RESET_BTN_PIN) == LOW)
-      {
-        Serial.println("Button Held");
-        Serial.println("Erasing Config, restarting");
-        wifiManager.resetSettings();
-        ESP.restart();
-      }
-    }
+    ShowOnOledLarge("", "WifiSettings", "RESET", 5000, BLACK,ICON::ICO_DELETE);
+    // wifiManager.resetSettings();
+    ESP.restart();
   }
-#endif
   //set minimu quality of signal so it ignores AP's under that quality
   //defaults to 8%
   //wifiManager.setMinimumSignalQuality();
@@ -732,16 +718,14 @@ void setup() {
 #endif
   
   Serial.begin(115200);
-#ifdef RESET_BTN_PIN
-  pinMode(RESET_BTN_PIN, INPUT);
-#endif
+
   ShowOnOledLarge("TacxClimb", FIRMWARE_VERSION,"by Runningtoy", 500,RED);
 
   readSettings();
 
   // Initialize Lifter Class data, variables, test and set to work !
   lift.Init(actuatorOutPin1, actuatorOutPin2, MINPOSITION, MAXPOSITION, BANDWIDTH);
-  ShowOnOledLarge("", "Motortest","...", 100,TFT_BLACK);
+  ShowOnOledLarge("", "Motortest","...", 100,TFT_BLACK,ICON::ICO_LIFTER);
   // if (!lift.TestBasicMotorFunctions())
   // {
   //   ShowOnOledLarge("", "Motortest","FAILED", 500,RED);
@@ -762,17 +746,19 @@ void setup() {
   
   lifterTicker.attach_ms(100, fct_lifterTicker);
 
+ 
+
 
   //SetupWifi
   Serial.println("Starting Wifi...");
   // ShowOnOledLarge("Connecting Wifi",wifi_icon40x40,40,40);
-  ShowOnOledLarge("", "Connecting Wifi", "", 500,RED);
+  ShowOnOledLarge("", "Connecting Wifi", "", 500,RED,ICON::ICO_WIFI);
   setupWiFi();
   // ShowOnOledLarge("Connecting MQTT",mqtt_icon32x28,32,28);
-  ShowOnOledLarge("", "Connecting MQTT", "", 500,RED);
+  ShowOnOledLarge("", "Connecting MQTT", "", 500,RED,ICON::ICO_MQTT);
 
   setupMQTT();
-  ShowOnOledLarge("", "connecting BLE", "", 500,RED);
+  ShowOnOledLarge("", "connecting BLE", "", 500,RED,ICON::ICO_BLE);
   // ShowOnOledLarge("Connecting BLE",bluetooth_icon16x16,16,16);
   
   Serial.println("Starting Arduino BLE Client application...");
@@ -821,7 +807,7 @@ void loop() {
       Serial.println("We are now connected to the BLE Server.");
       // ShowOnOledLarge("BLE connected",bluetooth_icon16x16,16,16,GREEN);
       char buffer[128];
-      snprintf(buffer, sizeof(buffer), "%s", myDevice->toString());
+      snprintf(buffer, sizeof(buffer), "%c", myDevice->toString());
       ShowOnOledLarge("", "Connected to ", buffer, 500,GREEN);
     } else {
       Serial.println("We have failed to connect to the server; there is nothin more we will do.");
@@ -888,7 +874,7 @@ void ButtonMenueResetTimer(){
 
 void checkButtonPress()
 {
-  if (menue_Btn == M5BUTTON::NONE)
+  if (menue_Btn == M5BUTTON::BTN_NONE)
   {
     if (M5.BtnA.wasReleased() || M5.BtnA.pressedFor(1000, 200))
     {
@@ -954,7 +940,7 @@ void checkButtonPress()
     }
   }
   if(buttonMenueReset<millis()){
-      menue_Btn = M5BUTTON::NONE;
+      menue_Btn = M5BUTTON::BTN_NONE;
       Serial.println("Reset buttonMenueReset ");
       saveSettings();
       buttonMenueReset=ULONG_MAX;

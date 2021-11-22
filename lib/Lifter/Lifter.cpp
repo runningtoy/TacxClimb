@@ -348,3 +348,42 @@ void Lifter::brakeActuator()
       break;
     }
   }
+
+
+  int16_t Lifter::getMaxUpperPositon(){
+      int16_t _lastPosition = GetVL53L0X_Range_Reading();
+      int16_t _actPosition = GetVL53L0X_Range_Reading();
+      moveActuatorUp();
+      do
+      {
+        delay(100);
+        _actPosition=GetVL53L0X_Range_Reading();
+      } while (_lastPosition<_actPosition);
+      brakeActuator();
+
+      Serial.print("UpperPosition: ");
+      Serial.println(_actPosition);
+
+  }
+
+
+    int16_t Lifter::getMaxLowerPositon(){
+      int16_t _lastPosition = GetVL53L0X_Range_Reading();
+      int16_t _actPosition = GetVL53L0X_Range_Reading();
+      moveActuatorDown();
+      do
+      {
+        delay(100);
+        _actPosition=GetVL53L0X_Range_Reading();
+      } while (_lastPosition>_actPosition);
+      brakeActuator();
+      Serial.print("LowerPosition: ");
+      Serial.println(_actPosition);
+
+  }
+
+
+  void Lifter::autoCalibrate(){
+      getMaxUpperPositon();
+      getMaxLowerPositon();
+  }

@@ -37,6 +37,9 @@ public:
   void moveActuatorDown();
   void brakeActuator();
   void gotoTargetPosition();
+  void autoCalibrate();
+  int16_t getMaxLowerPositon();
+  int16_t getMaxUpperPositon();
 };
 
 #endif
