@@ -3,13 +3,13 @@
 
 
 //IF Core is powered by USB/Battery
-#define USB_POWERED
+// #define USB_POWERED
 // #define MYDEBUG
 
 
 // Feather M5Stack CORE2 I/O Pin declarations for connection to Motor driver board MDD3A
-#define actuatorOutPin1 27    // --> GPIO27 connected to pin M1A of the MDD3A Motor Driver board
-#define actuatorOutPin2 19    // --> GPIO19 connected to the M1B of the MDD3A Motor Driver board
+#define actuatorOutPin1 GPIO_NUM_26    // --> GPIO27 connected to pin M1A of the MDD3A Motor Driver board
+#define actuatorOutPin2 GPIO_NUM_25    // --> GPIO19 connected to the M1B of the MDD3A Motor Driver board
 
 
 #define I2C_SDA 32
@@ -27,8 +27,8 @@
 // The microswitches are mechanically controlled, and NOT by the software --> should be fail safe!
 // Notice that unrestricted movement at the boundaries can damage the Actuator and/or construction!
 // The following values are respected by the software and will (in normal cases!) never be exceeded!
-#define MINPOSITION 265 // VL6180X highest value top microswitch activated to mechanically stop operation
-#define MAXPOSITION 535 // VL6180X lowest value bottom microswitch activated to mechanically stop operation
+#define MINPOSITION 22 // VL6180X highest value top microswitch activated to mechanically stop operation
+#define MAXPOSITION 299 // VL6180X lowest value bottom microswitch activated to mechanically stop operation
 // -------------------------- WARNING ------------------------------------------------------------
 // Operational boundaries of the VL6180X sensor are used/set in class Lifter after calling its "init".
 // A safe measuring range of at least 30 cm of total movement is recommended for the VL6180X sensor setting!
@@ -37,4 +37,4 @@
 // the above defined max or min positions of the construction! The software does painstakingly respect
 // these and is independent of the appropriate working of the microswitches when reaching the boundaries!
 // These microswitches are a SECOND line of defence against out of range and potentially damaging movement!
-#define BANDWIDTH 4
+#define BANDWIDTH 6

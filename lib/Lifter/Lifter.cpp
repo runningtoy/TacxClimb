@@ -263,8 +263,9 @@ void Lifter::moveActuatorUp()
     // DO NOT REPEATEDLY set the same motor direction 
     if (_IsMovingUp) {return;}
     
-    digitalWrite(_actuatorOutPin1, LOW);                           
+                              
     digitalWrite(_actuatorOutPin2, HIGH);
+    digitalWrite(_actuatorOutPin1, LOW); 
     delay(200);
     _IsMovingUp = true;
     _IsMovingDown = false;
@@ -290,8 +291,9 @@ void Lifter::moveActuatorDown()
     if (_IsMovingDown) {return;}
     
     // moving in the wrong direction or not moving at all
-    digitalWrite(_actuatorOutPin1, HIGH);                           
+                               
     digitalWrite(_actuatorOutPin2, LOW);
+    digitalWrite(_actuatorOutPin1, HIGH);
     delay(200);
     _IsMovingDown = true;
     _IsMovingUp = false;
