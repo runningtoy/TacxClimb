@@ -5,6 +5,7 @@
 //IF Core is powered by USB/Battery
 // #define USB_POWERED
 // #define MYDEBUG
+#define DIRECTFANCONTROL
 
 
 // Feather M5Stack CORE2 I/O Pin declarations for connection to Motor driver board MDD3A
@@ -37,4 +38,4 @@
 // the above defined max or min positions of the construction! The software does painstakingly respect
 // these and is independent of the appropriate working of the microswitches when reaching the boundaries!
 // These microswitches are a SECOND line of defence against out of range and potentially damaging movement!
-#define BANDWIDTH 6
+#define BANDWIDTH 5

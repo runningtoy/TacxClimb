@@ -157,6 +157,7 @@ Lifter lift;
 int16_t TargetPosition = map(RawgradeValue, RGVMIN, RGVMAX, MAXPOSITION, MINPOSITION);
 bool IsBasicMotorFunctions = false; // Mechanical motor functions
 Ticker lifterTicker;
+char bufferLiftPositon[128];
 
 //------------ include Screen ---------------
 #include "Screen.h"
@@ -300,6 +301,9 @@ static void notifyCallback(BLERemoteCharacteristic *pBLERemoteCharacteristic, ui
     Serial.printf(" - Cadence: %03d  ", InstantaneousCadence);
     Serial.printf(" - Power in Watts: %04d  ", PowerValue);
     Serial.println();
+#endif
+#ifdef DIRECTFANCONTROL
+  controlFAN();
 #endif
   }
   break;
@@ -737,7 +741,9 @@ void setup()
     }
   }
 
-  lifterTicker.attach_ms(100, fct_lifterTicker);
+  
+  snprintf(bufferLiftPositon, sizeof(bufferLiftPositon), "%s/LiftPositon", mqtt_topic);
+  lifterTicker.attach_ms(10, fct_lifterTicker);
 
 
   ShowOnOledLarge("", "connecting BLE", "", 500, RED, ICON::ICO_BLE);
@@ -835,6 +841,8 @@ bool ControlUpDownMovement(void)
   Serial.println();
   Serial.printf("RawgradeValue: %05d ", RawgradeValue, DEC);
   Serial.printf(" TargetPosition: %03d", TargetPosition, DEC);
+  Serial.printf(" CurrentPosition: %03d", lift.GetPosition(), DEC);
+  Serial.println();
 // #endif
   lift.SetTargetPosition(TargetPosition);
   lift.gotoTargetPosition();
@@ -852,14 +860,16 @@ void fct_lifterTicker()
 {
   if (IsBasicMotorFunctions)
   {
-    while (ControlUpDownMovement())
-    {
-    }
+    ControlUpDownMovement();
+    // while (ControlUpDownMovement())
+    // {
+    // }
   }
   // #ifdef MYDEBUG
   Serial.print("LiftPositon:");
   Serial.println(lift.GetPosition());
   // #endif
+  mqttClient.publish(bufferLiftPositon, String(lift.GetPosition()).c_str());
 }
 
 unsigned long buttonMenueReset = ULONG_MAX;
@@ -1029,3 +1039,31 @@ void saveSettings()
     //end save
   }
 }
+
+
+
+/////////////////////////////////////////////////////
+#ifdef DIRECTFANCONTROL
+void controlFAN(){
+  if(PowerValue<10){
+    mqttClient.publish("cmnd/ZwiftFan/POWER1","OFF");
+    mqttClient.publish("cmnd/ZwiftFan/POWER2","OFF");
+    mqttClient.publish("cmnd/ZwiftFan/POWER3","OFF");
+    mqttClient.publish("cmnd/ZwiftFan/POWER4","OFF");
+    return;
+  }
+  if(PowerValue<150){
+    mqttClient.publish("cmnd/ZwiftFan/POWER4","ON");
+    return;
+  }
+  if(PowerValue<300){
+    mqttClient.publish("cmnd/ZwiftFan/POWER3","ON");
+    return;
+  }
+  if(PowerValue<500){
+    mqttClient.publish("cmnd/ZwiftFan/POWER2","ON");
+    return;
+  }
+}
+#endif
+/////////////////////////////////////////////////////
