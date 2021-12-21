@@ -2,6 +2,9 @@
 #include "myDefines.h"
 #include <M5Core2.h>
 #include <Ticker.h>
+#ifdef OTA
+#include "myOTA.h"
+#endif
 
 typedef enum M5BUTTON
 { // <-- the use of typedef is optional
@@ -664,6 +667,7 @@ void setupWiFi()
 
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
+  WiFi.setHostname(FIRMWARE_NAME); //define hostname
   // ShowOnOledLarge(WiFi.localIP().toString(),wifiLogo_bits,wifiLogo_width,wifiLogo_height);
 }
 
@@ -682,6 +686,9 @@ bool reconnect()
       Serial.println("Reconnecting to MQTT Broker..");
       if (mqttClient.connect("Tacx2Mqtt"))
       {
+        char buffer[128];
+        snprintf(buffer, sizeof(buffer), "%s/IP", mqtt_topic);
+        mqttClient.publish(buffer, WiFi.localIP().toString().c_str());
         Serial.println("Connected.");
       }
     }
@@ -707,7 +714,7 @@ void setup()
 
   Serial.begin(115200);
 
-  ShowOnOledLarge("TacxClimb", FIRMWARE_VERSION, "by Runningtoy", 500, RED);
+  ShowOnOledLarge(FIRMWARE_NAME, FIRMWARE_VERSION, "by Runningtoy", 500, RED);
 
   readSettings();
 
@@ -740,11 +747,7 @@ void setup()
       delay(1);
     }
   }
-
-  
   snprintf(bufferLiftPositon, sizeof(bufferLiftPositon), "%s/LiftPositon", mqtt_topic);
-  lifterTicker.attach_ms(30, fct_lifterTicker);
-
 
   ShowOnOledLarge("", "connecting BLE", "", 500, RED, ICON::ICO_BLE);
   // ShowOnOledLarge("Connecting BLE",bluetooth_icon16x16,16,16);
@@ -761,6 +764,15 @@ void setup()
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
   pBLEScan->start(BLE_SCAN_TIMEOUT, false);
+
+
+#ifdef OTA
+  ShowOnOledLarge("", "OTA", "", 500, TFT_GREEN, ICON::ICO_WIFI);
+  OTASetup();
+#endif
+
+  lifterTicker.attach_ms(30, fct_lifterTicker);
+  ShowOnOledLarge("", FIRMWARE_NAME, "Ready", 500, TFT_GREEN, ICON::ICO_CHECK);
 
   updateDisplay = true;
 } // End of setup.
@@ -826,6 +838,10 @@ void loop()
   checkButtonPress();
 
   ShowValuesOnOled();
+
+  #ifdef OTA
+    OTAloop();
+  #endif
 
 } // End of loop
 

@@ -9,7 +9,7 @@
 // Declare the running average filter for VL53L0X Range measurements
 // Filter is only used in the Lifter Class 
 // Sampling is at about 10 Hz --> 10 VL53L0X-RANGE-readings per second
-#define NUMBER_OF_RANGE_READINGS 10
+#define NUMBER_OF_RANGE_READINGS 20
 // Instantiate MovingAverageFilter class
   MovingAverageFilter movingAverageFilter_Range(NUMBER_OF_RANGE_READINGS);
   
@@ -120,6 +120,9 @@ bool Lifter::TestBasicMotorFunctions()
 #ifdef MYDEBUG 
   Serial.print("Testing VL53L0X and motor functioning..."); Serial.println();
 #endif  
+  for (int i = 0; i < NUMBER_OF_RANGE_READINGS; i++) {  // Determine precise position after 800 ms of movement !
+    GetVL53L0X_Range_Reading();
+  } 
   int16_t PresentPosition01 = GetVL53L0X_Range_Reading();
 #ifdef MYDEBUG  
   Serial.print("Start at position: "); Serial.print(PresentPosition01);Serial.println();
@@ -138,7 +141,7 @@ bool Lifter::TestBasicMotorFunctions()
   delay(800); // Wait for some time
   brakeActuator();
   
-  for (int i = 0; i < 10; i++) {  // Determine precise position after 800 ms of movement !
+  for (int i = 0; i < NUMBER_OF_RANGE_READINGS; i++) {  // Determine precise position after 800 ms of movement !
      _CurrentPosition = GetVL53L0X_Range_Reading();
      } 
  
@@ -165,7 +168,7 @@ bool Lifter::TestBasicMotorFunctions()
   delay(1600); // Wait some time (extra to "undo" the previous Up movement!!)
   brakeActuator();
   
-  for (int i = 0; i < 10; i++) {  // Determine precise position after 2400 ms of movement !
+  for (int i = 0; i < NUMBER_OF_RANGE_READINGS; i++) {  // Determine precise position after 2400 ms of movement !
      _CurrentPosition = GetVL53L0X_Range_Reading();
      } 
  

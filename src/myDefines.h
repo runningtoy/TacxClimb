@@ -6,6 +6,7 @@
 // #define USB_POWERED
 // #define MYDEBUG
 #define DIRECTFANCONTROL
+#define OTA
 
 
 // Feather M5Stack CORE2 I/O Pin declarations for connection to Motor driver board MDD3A
