@@ -743,7 +743,7 @@ void setup()
 
   
   snprintf(bufferLiftPositon, sizeof(bufferLiftPositon), "%s/LiftPositon", mqtt_topic);
-  lifterTicker.attach_ms(10, fct_lifterTicker);
+  lifterTicker.attach_ms(30, fct_lifterTicker);
 
 
   ShowOnOledLarge("", "connecting BLE", "", 500, RED, ICON::ICO_BLE);

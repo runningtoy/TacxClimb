@@ -84,7 +84,8 @@ void Lifter::Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH)
   // measurement, wait for it to complete
   delay(300);
   // start range continuous mode with a period of 100 ms
-  sensor.startContinuous(100);
+  sensor.startContinuous();
+  // sensor.startContinuous(100);
 #ifdef MYDEBUG
   Serial.print(" ---------- VL53L0X Range Continuous Mode Selected ---------"); Serial.println();
 #endif
