@@ -50,47 +50,10 @@ void Lifter::Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH)
 // setup wire communication and defaults for the VL53L0X
   Wire.begin();
   
-// setup VL53L0X settings and operating mode
-// Range Continuous or Single Shot, read the manual.... 
-// NOTICE: COMPILER DIRECTIVE !!!!
-  #define RANGE_CONTINUOUS
-// Set scaling (after configureDefault = 1) of the VL53L0X to approriate value 1, 2 or 3
-//  Only scaling factors  #3 will work in our situation of 30+ cm range
-  #define _SCALING 3
-  sensor.init();
+  // sensor.configSensor(sensor.VL53L0X_SENSE_LONG_RANGE);
+  sensor.begin(ToF_ADDR);
 
-  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
-  // sensor.configureDefault();
-  // sensor.setScaling(_SCALING);
-  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
-
-
-
-// Single shot operating mode of VL53L0X is simplest and default
-// The following is extra code critical for using Continuous mode !!!
-  #ifdef RANGE_CONTINUOUS
-  // Reduce range max convergence time and the inter-measurement
-  // -time to 30 ms and 50 ms, respectively, to allow 10 Hz
-  // operation. Somewhat more power consumption but higher accuracy!
-  
-  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
-  // sensor.writeReg(VL53L0X::SYSRANGE__MAX_CONVERGENCE_TIME, 30);
-  // sensor.writeReg(VL53L0X::SYSRANGE__INTERMEASUREMENT_PERIOD, 50);
-  // !!!!!!!!!!!!!!!!!! need some check !!!!!!!!!!!!!!!!!!
-  
-  // stop continuous mode if already active
-  sensor.stopContinuous();
-  // in case stopContinuous() triggered a single-shot
-  // measurement, wait for it to complete
-  delay(300);
-  // start range continuous mode with a period of 100 ms
-  sensor.startContinuous();
-  // sensor.startContinuous(100);
-#ifdef MYDEBUG
-  Serial.print(" ---------- VL53L0X Range Continuous Mode Selected ---------"); Serial.println();
-#endif
-  #endif
-  sensor.setTimeout(500);
+  sensor.startRangeContinuous();
   
 // fill the movingAverageFilter with actual values instead of default zero's....
 // that blur operation in the early stages (of testing..)
@@ -101,18 +64,13 @@ void Lifter::Init(int OutPin1, int OutPin2, int MINPOS, int MAXPOS, int BANDWTH)
 
 int16_t Lifter::GetVL53L0X_Range_Reading()
 {
- #ifdef RANGE_CONTINUOUS
-    int16_t temp = sensor.readRangeContinuousMillimeters();
- #else
-    int16_t temp = sensor.readRangeSingleMillimeters();
- #endif
-    if (sensor.timeoutOccurred()) 
+  if (sensor.timeoutOccurred()) 
         { 
 #ifdef MYDEBUG
         Serial.print(" TIMEOUT"); Serial.println();
 #endif
         }
-  return movingAverageFilter_Range.process(temp);  
+  return movingAverageFilter_Range.process(sensor.readRange());  
 }
 
 bool Lifter::TestBasicMotorFunctions()

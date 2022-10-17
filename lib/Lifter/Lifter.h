@@ -8,11 +8,12 @@
 
 #include "Arduino.h"
 // #include "VL6180X.h"
-#include <VL53L0X.h>
+#include "Adafruit_VL53L0X.h"
+#define ToF_ADDR 0x29//the iic address of tof
 
 class Lifter {
  
-  VL53L0X sensor;
+  Adafruit_VL53L0X sensor;
   bool _IsBrakeOn;
   bool _IsMovingUp;
   bool _IsMovingDown;

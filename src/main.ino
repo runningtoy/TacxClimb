@@ -580,6 +580,7 @@ void setupWiFi()
 
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
+  wifiManager.setHostname(FIRMWARE_NAME);
 
   //set static ip
   // wifiManager.setSTAStaticIPConfig(IPAddress(10, 0, 1, 99), IPAddress(10, 0, 1, 1), IPAddress(255, 255, 255, 0));
@@ -667,7 +668,7 @@ void setupWiFi()
 
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
-  WiFi.setHostname(FIRMWARE_NAME); //define hostname
+  // WiFi.setHostname(FIRMWARE_NAME); //define hostname
   // ShowOnOledLarge(WiFi.localIP().toString(),wifiLogo_bits,wifiLogo_width,wifiLogo_height);
 }
 
@@ -728,6 +729,7 @@ void setup()
   setupMQTT();
 
   // Initialize Lifter Class data, variables, test and set to work !
+  ShowOnOledLarge("", "Motor init", "...", 100, TFT_BLACK, ICON::ICO_LIFTER);
   lift.Init(actuatorOutPin1, actuatorOutPin2, MINPOSITION, MAXPOSITION, BANDWIDTH);
   ShowOnOledLarge("", "Motortest", "...", 100, TFT_BLACK, ICON::ICO_LIFTER);
   if (!lift.TestBasicMotorFunctions())
@@ -856,8 +858,8 @@ bool ControlUpDownMovement(void)
 // #ifdef MYDEBUG
   Serial.println();
   Serial.printf("RawgradeValue: %05d ", RawgradeValue, DEC);
-  Serial.printf(" TargetPosition: %03d", TargetPosition, DEC);
-  Serial.printf(" CurrentPosition: %03d", lift.GetPosition(), DEC);
+  Serial.printf("TargetPosition: %03d", TargetPosition, DEC);
+  Serial.printf("CurrentPosition: %03d", lift.GetPosition(), DEC);
   Serial.println();
 // #endif
   lift.SetTargetPosition(TargetPosition);
@@ -877,9 +879,6 @@ void fct_lifterTicker()
   if (IsBasicMotorFunctions)
   {
     ControlUpDownMovement();
-    // while (ControlUpDownMovement())
-    // {
-    // }
   }
   // #ifdef MYDEBUG
   Serial.print("LiftPositon:");
@@ -922,12 +921,12 @@ void checkButtonPress()
   {
     if (menue_Btn == M5BUTTON::BTN_A)
     {
-      if (M5.BtnA.wasReleased())
+      if (M5.BtnA.pressedFor(100))
       {
         GradeChangeFactor++;
         ButtonMenueResetTimer();
       }
-      if (M5.BtnC.wasReleased())
+      if (M5.BtnC.pressedFor(100))
       {
         GradeChangeFactor--;
         ButtonMenueResetTimer();
@@ -936,12 +935,12 @@ void checkButtonPress()
 
     if (menue_Btn == M5BUTTON::BTN_B)
     {
-      if (M5.BtnA.wasReleased())
+      if (M5.BtnA.pressedFor(100))
       {
         aRGVmax++;
         ButtonMenueResetTimer();
       }
-      if (M5.BtnC.wasReleased())
+      if (M5.BtnC.pressedFor(100))
       {
         aRGVmax--;
         ButtonMenueResetTimer();
@@ -950,12 +949,12 @@ void checkButtonPress()
 
     if (menue_Btn == M5BUTTON::BTN_C)
     {
-      if (M5.BtnA.wasReleased())
+      if (M5.BtnA.pressedFor(100))
       {
         aRGVmin++;
         ButtonMenueResetTimer();
       }
-      if (M5.BtnC.wasReleased())
+      if (M5.BtnC.pressedFor(100))
       {
         aRGVmin--;
         ButtonMenueResetTimer();
